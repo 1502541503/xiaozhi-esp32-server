@@ -477,8 +477,9 @@ class ConnectionHandler:
         # 更新系统prompt至上下文
         self.dialogue.update_system_message(self.prompt)
 
-    def chat(self, query):
+    def chat(self, query, imgurl=None):
 
+        print("进入 chat：", imgurl)
         self.dialogue.put(Message(role="user", content=query))
 
         response_message = []
@@ -493,8 +494,22 @@ class ConnectionHandler:
                 memory_str = future.result()
 
             self.logger.bind(tag=TAG).debug(f"记忆内容: {memory_str}")
+
+            # 构造图文混合消息（Qwen-VL 等多模态模型格式）
+            if imgurl:
+                messages = [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": query},
+                    {"type": "image_url", "image_url": {"url": imgurl}}
+                ]
+            }]
+            else:
+                messages = self.dialogue.get_llm_dialogue_with_memory(memory_str)
+
             llm_responses = self.llm.response(
-                self.session_id, self.dialogue.get_llm_dialogue_with_memory(memory_str)
+                #self.session_id, self.dialogue.get_llm_dialogue_with_memory(memory_str)
+                self.session_id, messages
             )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
@@ -561,6 +576,7 @@ class ConnectionHandler:
         return True
 
     def chat_with_function_calling(self, query, tool_call=False):
+        print("进入 chat_with_function_calling：")
         self.logger.bind(tag=TAG).debug(f"Chat with function calling start: {query}")
         """Chat with function calling for intent detection using streaming"""
 

@@ -11,6 +11,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        print("图像识别 defy：", "111")
         self.api_key = config["api_key"]
         self.mode = config.get("mode", "chat-messages")
         self.base_url = config.get("base_url", "https://api.dify.ai/v1").rstrip("/")
@@ -18,6 +19,7 @@ class LLMProvider(LLMProviderBase):
         check_model_key("DifyLLM", self.api_key)
 
     def response(self, session_id, dialogue):
+        print("图像识别 defy：", "111")
         try:
             # 取最后一条用户消息
             last_msg = next(m for m in reversed(dialogue) if m["role"] == "user")

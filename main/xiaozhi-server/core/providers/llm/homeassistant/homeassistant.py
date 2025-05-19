@@ -15,6 +15,8 @@ class LLMProvider(LLMProviderBase):
         self.api_url = f"{self.base_url}/api/conversation/process"  # 拼接完整的 API URL
 
     def response(self, session_id, dialogue):
+
+        print("图像识别 home：", "111")
         try:
             # home assistant语音助手自带意图，无需使用xiaozhi ai自带的，只需要把用户说的话传递给home assistant即可
 

@@ -9,6 +9,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        print("图像识别 xinference：", "111")
         self.model_name = config.get("model_name")
         self.base_url = config.get("base_url", "http://localhost:9997")
         # Initialize OpenAI client with Xinference base URL

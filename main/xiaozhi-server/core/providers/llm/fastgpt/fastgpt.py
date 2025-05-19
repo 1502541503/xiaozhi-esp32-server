@@ -10,6 +10,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        print("图像识别 fastgpt：", "111")
         self.api_key = config["api_key"]
         self.base_url = config.get("base_url")
         self.detail = config.get("detail", False)
@@ -17,6 +18,7 @@ class LLMProvider(LLMProviderBase):
         check_model_key("FastGPTLLM", self.api_key)
 
     def response(self, session_id, dialogue):
+        print("图像识别 fastgpt：", "111")
         try:
             # 取最后一条用户消息
             last_msg = next(m for m in reversed(dialogue) if m["role"] == "user")

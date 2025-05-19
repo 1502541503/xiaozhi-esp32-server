@@ -10,6 +10,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        print("图像识别 ali：", "111")
         self.api_key = config["api_key"]
         self.app_id = config["app_id"]
         self.base_url = config.get("base_url")
@@ -18,6 +19,7 @@ class LLMProvider(LLMProviderBase):
         check_model_key("AliBLLLM", self.api_key)
 
     def response(self, session_id, dialogue):
+        print("图像识别 ali：", "111")
         try:
             # 处理dialogue
             if self.is_No_prompt:

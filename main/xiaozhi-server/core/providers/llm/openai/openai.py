@@ -10,6 +10,9 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+
+        print("图像识别 openai：", "111")
+
         self.model_name = config.get("model_name")
         self.api_key = config.get("api_key")
         if "base_url" in config:
@@ -30,6 +33,8 @@ class LLMProvider(LLMProviderBase):
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def response(self, session_id, dialogue):
+        print("图像识别 model：", self.model_name)
+        print("图像识别 openai：", dialogue)
         try:
             responses = self.client.chat.completions.create(
                 model=self.model_name,

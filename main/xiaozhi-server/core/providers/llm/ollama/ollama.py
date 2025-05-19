@@ -9,6 +9,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        print("图像识别 ollama：", "111")
         self.model_name = config.get("model_name")
         self.base_url = config.get("base_url", "http://localhost:11434")
         # Initialize OpenAI client with Ollama base URL

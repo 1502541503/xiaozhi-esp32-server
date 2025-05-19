@@ -82,6 +82,35 @@ async def startToChat(conn, text):
     else:
         conn.executor.submit(conn.chat, text)
 
+#增加一个图像识别
+async def startToChat(conn, text, imgurl=None):
+    print("图像识别 startToChat：", imgurl)
+    if conn.need_bind:
+        await check_bind_device(conn)
+        return
+
+    # 字数限制检查
+    if conn.max_output_size > 0:
+        if check_device_output_limit(
+            conn.headers.get("device-id"), conn.max_output_size
+        ):
+            await max_out_size(conn)
+            return
+
+    # 意图分析
+    intent_handled = await handle_user_intent(conn, text)
+
+    if intent_handled:
+        conn.asr_server_receive = True
+        return
+
+    # 正常聊天流程
+    await send_stt_message(conn, text)
+    if conn.intent_type == "function_call" and imgurl is None:
+        conn.executor.submit(conn.chat_with_function_calling, text)
+    else:
+        conn.executor.submit(conn.chat, text,imgurl)
+
 
 async def no_voice_close_connect(conn):
     if conn.client_no_voice_last_time == 0.0:

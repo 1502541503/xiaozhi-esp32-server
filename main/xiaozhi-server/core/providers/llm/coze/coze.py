@@ -19,6 +19,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        print("图像识别 coze：", "111")
         self.personal_access_token = config.get("personal_access_token")
         self.bot_id = str(config.get("bot_id"))
         self.user_id = str(config.get("user_id"))
@@ -26,6 +27,7 @@ class LLMProvider(LLMProviderBase):
         check_model_key("CozeLLM", self.personal_access_token)
 
     def response(self, session_id, dialogue):
+        print("图像识别 coze：", "111")
         coze_api_token = self.personal_access_token
         coze_api_base = COZE_CN_BASE_URL
 

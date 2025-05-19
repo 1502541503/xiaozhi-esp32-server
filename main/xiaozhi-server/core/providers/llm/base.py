@@ -7,6 +7,7 @@ logger = setup_logging()
 class LLMProviderBase(ABC):
     @abstractmethod
     def response(self, session_id, dialogue):
+        print("图像识别 base：", "111")
         """LLM response generator"""
         pass
 

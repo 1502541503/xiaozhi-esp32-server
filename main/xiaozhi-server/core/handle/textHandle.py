@@ -40,9 +40,13 @@ async def handleTextMessage(conn, message):
             elif msg_json["state"] == "detect":
                 conn.asr_server_receive = False
                 conn.client_have_voice = False
+                #这里client_abort = False，新一轮语音或者文本重置打断标志
+                conn.client_abort = False
+
                 conn.asr_audio.clear()
                 if "text" in msg_json:
                     text = msg_json["text"]
+                    imgurl = msg_json.get("imgUrl")  # 新增支持图片字段
                     _, text = remove_punctuation_and_length(text)
 
                     # 识别是否是唤醒词
@@ -62,7 +66,8 @@ async def handleTextMessage(conn, message):
                         # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
                         enqueue_tts_report(conn, 1, text, [])
                         # 否则需要LLM对文字内容进行答复
-                        await startToChat(conn, text)
+                        print("图片 URL：", imgurl)
+                        await startToChat(conn, text,imgurl=imgurl)
         elif msg_json["type"] == "iot":
             if "descriptors" in msg_json:
                 asyncio.create_task(handleIotDescriptors(conn, msg_json["descriptors"]))
