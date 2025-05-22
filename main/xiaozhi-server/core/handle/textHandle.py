@@ -71,9 +71,8 @@ async def handleTextMessage(conn, message):
                         # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
                         enqueue_asr_report(conn, original_text, [])
                         # 否则需要LLM对文字内容进行答复
-                        await startToChat(conn, original_text)
                         print("图片 URL：", imgurl)
-                        await startToChat(conn, text,imgurl=imgurl)
+                        await startToChat(conn, original_text,imgurl=imgurl)
         elif msg_json["type"] == "iot":
             conn.logger.bind(tag=TAG).info(f"收到iot消息：{message}")
             if "descriptors" in msg_json:
