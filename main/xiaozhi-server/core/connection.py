@@ -509,6 +509,8 @@ class ConnectionHandler:
     def chat(self, query, imgurl=None):
 
         print("进入 chat：", imgurl)
+        print("LLM：", getattr(self.llm, "provider", ""))
+
         self.dialogue.put(Message(role="user", content=query))
 
         response_message = []
@@ -525,7 +527,7 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).debug(f"记忆内容: {memory_str}")
 
             # 构造图文混合消息（Qwen-VL 等多模态模型格式）
-            if imgurl:
+            if imgurl and getattr(self.llm, "provider", "") != "AliBL":
                 messages = [{
                 "role": "user",
                 "content": [
@@ -536,10 +538,14 @@ class ConnectionHandler:
             else:
                 messages = self.dialogue.get_llm_dialogue_with_memory(memory_str)
 
-            llm_responses = self.llm.response(
-                #self.session_id, self.dialogue.get_llm_dialogue_with_memory(memory_str)
-                self.session_id, messages
-            )
+            if getattr(self.llm, "provider", "") == "AliBL":
+                llm_responses = self.llm.response(
+                    self.session_id, messages, imgurl=imgurl
+                )
+            else:
+                llm_responses = self.llm.response(
+                    self.session_id, messages
+                )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
             return None

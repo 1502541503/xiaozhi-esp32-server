@@ -11,6 +11,7 @@ logger = setup_logging()
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
         print("图像识别 ali：", "111")
+        self.provider = config.get("type", "AliBL")
         self.api_key = config["api_key"]
         self.app_id = config["app_id"]
         self.base_url = config.get("base_url")
@@ -18,7 +19,7 @@ class LLMProvider(LLMProviderBase):
         self.memory_id = config.get("ali_memory_id")
         check_model_key("AliBLLLM", self.api_key)
 
-    def response(self, session_id, dialogue):
+    def response(self, session_id, dialogue, imgurl=None):
         print("图像识别 ali：", "111")
         try:
             # 处理dialogue
@@ -35,6 +36,15 @@ class LLMProvider(LLMProviderBase):
                 "session_id": session_id,
                 "messages": dialogue,
             }
+
+            # 如果传入图片 URL，则包装成列表传给 image_list
+            if imgurl:
+                call_params["image_list"] = [imgurl]
+                logger.bind(tag=TAG).debug(
+                    f"【阿里百练API服务】附加图片链接: {imgurl}"
+                )
+
+
             if self.memory_id != False:
                 # 百练memory需要prompt参数
                 prompt = dialogue[-1].get("content")
