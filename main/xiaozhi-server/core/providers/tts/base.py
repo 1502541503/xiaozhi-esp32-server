@@ -19,6 +19,24 @@ class TTSProviderBase(ABC):
         pass
 
     def to_tts(self, text):
+        short_cmd_prefixes = [
+            "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
+            "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
+            "开启勿扰", "视觉识别", "关闭勿扰", "停止录像",
+            "Answer the call", "Hang up the call", "Check the battery level",
+            "Take a photo", "Record a video", "Play some music", "Resume playing",
+            "Pause the music", "Previous song", "Next song", "Volume down",
+            "Volume up", "Restart the device", "Turn on Do Not Disturb",
+            "Visual recognition", "Turn off Do Not Disturb", "Stop recording"
+        ]
+
+        clean_text = text.strip()
+
+        # 判断是否属于预定义的短指令
+        if any(clean_text.startswith(cmd) for cmd in short_cmd_prefixes):
+            logger.bind(tag=TAG).info(f"命令式回答内容（跳过语音）: {clean_text}")
+            return None
+
         tmp_file = self.generate_filename()
         try:
             max_repeat_time = 5

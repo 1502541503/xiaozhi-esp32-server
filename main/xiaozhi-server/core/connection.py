@@ -1012,7 +1012,7 @@ class ConnectionHandler:
             return None, text, text_index
         tts_file = self.tts.to_tts(text)
         if tts_file is None:
-            self.logger.bind(tag=TAG).error(f"tts转换失败，{text}")
+            self.logger.bind(tag=TAG).error(f"tts转换失败或者文本为指令跳过，{text}")
             return None, text, text_index
         self.logger.bind(tag=TAG).debug(f"TTS 文件生成完毕: {tts_file}")
         if self.max_output_size > 0:
