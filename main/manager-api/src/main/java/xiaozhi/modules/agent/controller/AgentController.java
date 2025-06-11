@@ -106,6 +106,7 @@ public class AgentController {
             entity.setAsrModelId(template.getAsrModelId());
             entity.setVadModelId(template.getVadModelId());
             entity.setLlmModelId(template.getLlmModelId());
+            entity.setVllmModelId(template.getVllmModelId());
             entity.setTtsModelId(template.getTtsModelId());
             entity.setTtsVoiceId(template.getTtsVoiceId());
             entity.setMemModelId(template.getMemModelId());
@@ -170,6 +171,9 @@ public class AgentController {
         }
         if (dto.getLlmModelId() != null) {
             existingEntity.setLlmModelId(dto.getLlmModelId());
+        }
+        if (dto.getVllmModelId() != null) {
+            existingEntity.setVllmModelId(dto.getVllmModelId());
         }
         if (dto.getTtsModelId() != null) {
             existingEntity.setTtsModelId(dto.getTtsModelId());

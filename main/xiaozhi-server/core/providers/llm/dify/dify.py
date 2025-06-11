@@ -18,7 +18,7 @@ class LLMProvider(LLMProviderBase):
         self.session_conversation_map = {}  # 存储session_id和conversation_id的映射
         check_model_key("DifyLLM", self.api_key)
 
-    def response(self, session_id, dialogue):
+    def response(self, session_id, dialogue, **kwargs):
         print("图像识别 defy：", "111")
         try:
             # 取最后一条用户消息

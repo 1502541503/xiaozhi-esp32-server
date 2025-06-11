@@ -17,7 +17,7 @@ class LLMProvider(LLMProviderBase):
         self.variables = config.get("variables", {})
         check_model_key("FastGPTLLM", self.api_key)
 
-    def response(self, session_id, dialogue):
+    def response(self, session_id, dialogue, **kwargs):
         print("图像识别 fastgpt：", "111")
         try:
             # 取最后一条用户消息
