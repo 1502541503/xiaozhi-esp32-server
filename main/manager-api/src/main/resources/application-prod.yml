@@ -59,7 +59,7 @@ feign:
 
 iot:
   solution:
-    url: https://dev.iot-solution.net/kotlinweb
+    url: https://api.iot-solution.net/kotlinweb
 
 sma:
   token: uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj

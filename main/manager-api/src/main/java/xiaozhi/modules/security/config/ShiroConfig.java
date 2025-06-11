@@ -90,6 +90,8 @@ public class ShiroConfig {
         filterMap.put("/agent/chat-history/report", "server");
         filterMap.put("/agent/saveMemory/**", "server");
         filterMap.put("/agent/play/**", "anon");
+        filterMap.put("/**/device/bindTest", "anon");
+        filterMap.put("/device/bindTest", "anon");
         filterMap.put("/**", "oauth2");
         shiroFilter.setFilterChainDefinitionMap(filterMap);
 

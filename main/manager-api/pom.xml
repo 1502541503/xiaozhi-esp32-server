@@ -32,6 +32,18 @@
         <okio-version>3.4.0</okio-version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2024.0.0</version> <!-- 推荐用最新的 2022.0.x 版本 -->
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.shiro</groupId>
@@ -215,6 +227,10 @@
             <groupId>com.squareup.okio</groupId>
             <artifactId>okio</artifactId>
             <version>${okio-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
     </dependencies>
 

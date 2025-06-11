@@ -42,7 +42,9 @@ import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.device.service.OtaService;
 import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.security.user.SecurityUser;
+import xiaozhi.modules.sys.dto.SysUserDTO;
 import xiaozhi.modules.sys.service.SysParamsService;
+import xiaozhi.modules.sys.service.SysUserService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
 
 @Slf4j
@@ -53,6 +55,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private final DeviceDao deviceDao;
     private final SysUserUtilService sysUserUtilService;
     private final SysParamsService sysParamsService;
+
     private final RedisUtils redisUtils;
     private final OtaService otaService;
 
@@ -127,6 +130,32 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         // 清理redis缓存
         redisUtils.delete(cacheDeviceKey);
         redisUtils.delete(deviceKey);
+        return true;
+    }
+
+
+    @Override
+    public Boolean deviceActivation2(String agentId, String mac,Long userId) {
+        //SysUserDTO sysUserDTO = sysUserService.getByUserId(1L);
+        UserDetail user = SecurityUser.getUser();
+        if (user.getId() == null) {
+            throw new RenException("用户未登录");
+        }
+        Date currentTime = new Date();
+        DeviceEntity deviceEntity = new DeviceEntity();
+        deviceEntity.setId(mac);
+        deviceEntity.setBoard("esp32s3");
+        deviceEntity.setAgentId(agentId);
+        deviceEntity.setAppVersion("1.0.0");
+        deviceEntity.setMacAddress(mac);
+        deviceEntity.setUserId(userId);
+        deviceEntity.setCreator(userId);
+        deviceEntity.setAutoUpdate(0);
+        deviceEntity.setCreateDate(currentTime);
+        deviceEntity.setUpdater(userId);
+        deviceEntity.setUpdateDate(currentTime);
+        deviceEntity.setLastConnectedAt(currentTime);
+        //deviceDao.insert(deviceEntity);
         return true;
     }
 

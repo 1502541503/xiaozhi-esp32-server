@@ -33,6 +33,7 @@ public interface DeviceService extends BaseService<DeviceEntity> {
      * 设备激活
      */
     Boolean deviceActivation(String agentId, String activationCode);
+    Boolean deviceActivation2(String agentId, String mac,Long userId);
 
     /**
      * 删除此用户的所有设备

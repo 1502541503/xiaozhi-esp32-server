@@ -20,6 +20,7 @@ import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.api.IotSolutionClient;
 import xiaozhi.modules.device.dto.DeviceRegisterDTO;
 import xiaozhi.modules.device.dto.DeviceUnBindDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -34,6 +35,8 @@ public class DeviceController {
     private final DeviceService deviceService;
 
     private final RedisUtils redisUtils;
+
+    private final IotSolutionClient iotSolutionClient;
 
     @PostMapping("/bind/{agentId}/{deviceCode}")
     @Operation(summary = "绑定设备")

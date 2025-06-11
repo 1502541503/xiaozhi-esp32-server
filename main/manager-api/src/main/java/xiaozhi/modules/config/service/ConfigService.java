@@ -1,5 +1,7 @@
 package xiaozhi.modules.config.service;
 
+import xiaozhi.common.utils.Result;
+
 import java.util.Map;
 
 public interface ConfigService {
@@ -19,4 +21,11 @@ public interface ConfigService {
      * @return 模型配置信息
      */
     Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule);
+
+    /**
+     * 访问API直接授权保存
+     *
+     * @return 模型配置信息
+     */
+    Result<Object> getMacAuthorize(String mac, Integer platform, String authorization);
 }
