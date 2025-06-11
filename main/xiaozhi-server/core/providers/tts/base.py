@@ -22,7 +22,7 @@ class TTSProviderBase(ABC):
         short_cmd_prefixes = [
             "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
             "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
-            "开启勿扰", "视觉识别", "关闭勿扰", "停止录像",
+            "开启勿扰", "视觉识别", "关闭勿扰", "停止录像", "音量调整",
             "Answer the call", "Hang up the call", "Check the battery level",
             "Take a photo", "Record a video", "Play some music", "Resume playing",
             "Pause the music", "Previous song", "Next song", "Volume down",

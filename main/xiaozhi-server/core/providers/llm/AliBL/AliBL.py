@@ -64,7 +64,7 @@ class LLMProvider(LLMProviderBase):
                     logger.bind(tag=TAG).error(
                         f"【阿里百练API服务异常】code={res.status_code}, message={res.message}, request_id={res.request_id}"
                     )
-                    yield "【阿里百练API服务响应异常】"
+                    yield f"【阿里百练API服务响应异常】{res.message}"
                     break
                 else:
                     yield res.output.text

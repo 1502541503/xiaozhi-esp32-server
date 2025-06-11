@@ -31,6 +31,7 @@ from core.handle.functionHandler import FunctionHandler
 from plugins_func.register import Action, ActionResponse
 from core.auth import AuthMiddleware, AuthenticationError
 from core.mcp.manager import MCPManager
+#from config.config_loader import get_private_config_from_api,get_mac_api
 from config.config_loader import get_private_config_from_api
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
 from core.utils.output_counter import add_device_output
@@ -147,10 +148,77 @@ class ConnectionHandler:
 
         self.audio_format = "opus"
 
+    def send_error_and_close(self, message: str):
+        """
+        发送错误消息给客户端，然后关闭 WebSocket 连接。
+        """
+        # 发送消息
+        asyncio.run_coroutine_threadsafe(
+            self.websocket.send(json.dumps({
+                "type": "server",
+                "status": "error",
+                "message": message
+            })),
+            self.loop
+        )
+        # 关闭连接
+        asyncio.run_coroutine_threadsafe(
+            self.websocket.close(code=1000, reason=message),
+            self.loop
+        )
+
+    def _validate_token(self, token: str) -> bool:
+        # 示例：硬编码允许的 token 列表
+        valid_tokens = {"uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj", "sma123"}
+        return token in valid_tokens
+
     async def handle_connection(self, ws):
         try:
             # 获取并验证headers
             self.headers = dict(ws.request.headers)
+            # 这里是授权校验 暂时注释不发版本
+            # if self.headers.get("device-id", None) is None:
+            #     # 尝试从 URL 的查询参数中获取 device-id
+            #     from urllib.parse import parse_qs, urlparse
+            #     # 从 WebSocket 请求中获取路径
+            #     request_path = ws.request.path
+            #     if not request_path:
+            #         self.logger.bind(tag=TAG).error("无法获取请求路径")
+            #         return
+            #     parsed_url = urlparse(request_path)
+            #     query_params = parse_qs(parsed_url.query)
+            #     if "device-id" in query_params:
+            #         self.headers["device-id"] = query_params["device-id"][0]
+            #         self.headers["client-id"] = query_params["client-id"][0]
+            #         self.headers["authorization"] = query_params["authorization"][0]
+            #
+            # try:
+            #     mac_authorize = get_mac_api(
+            #         self.headers.get("authorization"),
+            #         self.headers.get("device-id"),
+            #     )
+            #
+            #     if not mac_authorize:
+            #         self.logger.bind(tag=TAG).error("设备未授权")
+            #         await ws.send(json.dumps({
+            #             "type": "server",
+            #             "status": "error",
+            #             "message": "设备未授权，请联系管理员"
+            #         }))
+            #         await self.close(ws)
+            #         return
+            #
+            #     self.logger.bind(tag=TAG).info("设备已授权")
+            #
+            # except Exception as e:
+            #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
+            #     await ws.send(json.dumps({
+            #         "type": "server",
+            #         "status": "error",
+            #         "message": f"授权校验失败: {str(e)}"
+            #     }))
+            #     await self.close(ws)
+            #     return
 
             if self.headers.get("device-id", None) is None:
                 # 尝试从 URL 的查询参数中获取 device-id
@@ -209,6 +277,7 @@ class ConnectionHandler:
             try:
                 async for message in self.websocket:
                     await self._route_message(message)
+
             except websockets.exceptions.ConnectionClosed:
                 self.logger.bind(tag=TAG).info("客户端断开连接")
 
@@ -263,7 +332,6 @@ class ConnectionHandler:
             await handleTextMessage(self, message)
         elif isinstance(message, bytes):
             await handleAudioMessage(self, message)
-
     async def handle_restart(self, message):
         """处理服务器重启请求"""
         try:
@@ -356,8 +424,9 @@ class ConnectionHandler:
             private_config = get_private_config_from_api(
                 self.config,
                 self.headers.get("device-id"),
-                self.headers.get("client-id", self.headers.get("device-id")),
+                self.headers.get("client-id", self.headers.get("device-id"))
             )
+
             private_config["delete_audio"] = bool(self.config.get("delete_audio", True))
             self.logger.bind(tag=TAG).info(
                 f"{time.time() - begin_time} 秒，获取差异化配置成功: {json.dumps(filter_sensitive_info(private_config), ensure_ascii=False)}"
@@ -372,7 +441,10 @@ class ConnectionHandler:
         except Exception as e:
             self.need_bind = True
             self.logger.bind(tag=TAG).error(f"获取差异化配置失败: {e}")
-            private_config = {}
+            # 这里直接关闭连接
+            # self.send_error_and_close(f"Restart failed: {str(e)}")
+            # private_config = {}
+            # return
 
         init_llm, init_tts, init_memory, init_intent = (
             False,
@@ -507,9 +579,26 @@ class ConnectionHandler:
         self.dialogue.update_system_message(self.prompt)
 
     def chat(self, query, imgurl=None):
-
+        if hasattr(self, 'asr_start_time') and self.asr_start_time:
+            elapsed = time.time() - self.asr_start_time
+            self.logger.bind(tag=TAG).info(f"语音转文本首帧耗时：{elapsed:.3f} 秒")
+            asyncio.run_coroutine_threadsafe(
+                self.websocket.send(
+                    json.dumps(
+                        {
+                            "type": "server",
+                            "msg": "语音转文本耗时-不包含接收语音时间",
+                            "duration": round(elapsed, 3),
+                            "session_id": self.session_id,
+                            "model": 1,
+                        }
+                    )
+                ),
+                self.loop,
+            )
+            self.asr_start_time = None
+        self.logger.bind(tag=TAG).info(f"开始对话了")
         print("进入 chat：", imgurl)
-        print("LLM：", getattr(self.llm, "provider", ""))
 
         self.dialogue.put(Message(role="user", content=query))
 
@@ -538,6 +627,8 @@ class ConnectionHandler:
             else:
                 messages = self.dialogue.get_llm_dialogue_with_memory(memory_str)
 
+            start_time = time.time()
+
             if getattr(self.llm, "provider", "") == "AliBL":
                 llm_responses = self.llm.response(
                     self.session_id, messages, imgurl=imgurl
@@ -546,12 +637,15 @@ class ConnectionHandler:
                 llm_responses = self.llm.response(
                     self.session_id, messages
                 )
+
+
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
             return None
 
         self.llm_finish_task = False
         text_index = 0
+        self.logger.bind(tag=TAG).info(f"AI llm_responses: {llm_responses}")
         for content in llm_responses:
             response_message.append(content)
             if self.client_abort:
@@ -580,13 +674,34 @@ class ConnectionHandler:
                 segment_text = get_string_no_punctuation_or_emoji(segment_text_raw)
                 if segment_text:
                     # 强制设置空字符，测试TTS出错返回语音的健壮性
-                    # if text_index % 2 == 0:
-                    #     segment_text = " "
                     text_index += 1
+                    self.logger.bind(tag=TAG).info(f"AI tts_first_text_index: {self.tts_first_text_index}")
+                    if self.tts_first_text_index == -1:
+                        end_time = time.time()
+                        elapsed_time = end_time - start_time
+                        self.logger.bind(tag=TAG).info(f"AI 模型请求耗时: {elapsed_time:.3f} 秒")
+                        asyncio.run_coroutine_threadsafe(
+                            self.websocket.send(
+                                json.dumps(
+                                    {
+                                        "type": "server",
+                                        "msg": "模型请求耗时",
+                                        "duration": round(elapsed_time, 3),
+                                        "session_id": self.session_id,
+                                        "model": 2
+                                    }
+                                )
+                            ),
+                            self.loop,
+                        )
                     self.recode_first_last_text(segment_text, text_index)
+
+
                     future = self.executor.submit(
                         self.speak_and_play, segment_text, text_index
                     )
+
+
                     self.tts_queue.put((future, text_index))
                     processed_chars += len(segment_text_raw)  # 更新已处理字符位置
 
@@ -597,6 +712,27 @@ class ConnectionHandler:
             segment_text = get_string_no_punctuation_or_emoji(remaining_text)
             if segment_text:
                 text_index += 1
+
+                self.logger.bind(tag=TAG).info(f"AI text_index: {text_index}")
+                if text_index == 1:
+                    end_time = time.time()
+                    elapsed_time = end_time - start_time
+                    self.logger.bind(tag=TAG).info(f"AI 模型请求耗时: {elapsed_time:.3f} 秒")
+                    asyncio.run_coroutine_threadsafe(
+                        self.websocket.send(
+                            json.dumps(
+                                {
+                                    "type": "server",
+                                    "msg": "模型请求耗时",
+                                    "duration": round(elapsed_time, 3),
+                                    "session_id": self.session_id,
+                                    "model": 2
+                                }
+                            )
+                        ),
+                        self.loop,
+                    )
+
                 self.recode_first_last_text(segment_text, text_index)
                 future = self.executor.submit(
                     self.speak_and_play, segment_text, text_index
@@ -626,8 +762,6 @@ class ConnectionHandler:
         processed_chars = 0  # 跟踪已处理的字符位置
 
         try:
-            start_time = time.time()
-
             # 使用带记忆的对话
             memory_str = None
             if self.memory is not None:
@@ -687,11 +821,6 @@ class ConnectionHandler:
                     if self.client_abort:
                         break
 
-                    end_time = time.time()
-                    # self.logger.bind(tag=TAG).debug(f"大模型返回时间: {end_time - start_time} 秒, 生成token={content}")
-
-                    # 处理文本分段和TTS逻辑
-                    # 合并当前全部文本并处理未分割部分
                     full_text = "".join(response_message)
                     current_text = full_text[processed_chars:]  # 从未处理的位置开始
 
@@ -1005,12 +1134,33 @@ class ConnectionHandler:
                 self.logger.bind(tag=TAG).error(f"聊天记录上报工作线程异常: {e}")
 
         self.logger.bind(tag=TAG).info("聊天记录上报线程已退出")
+        self.logger.bind(tag=TAG).info("聊天记录上报线程已退出")
 
     def speak_and_play(self, text, text_index=0):
         if text is None or len(text) <= 0:
             self.logger.bind(tag=TAG).info(f"无需tts转换，query为空，{text}")
             return None, text, text_index
+
+        start_time = time.time()
         tts_file = self.tts.to_tts(text)
+        if text_index==1:
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            self.logger.bind(tag=TAG).info(f"AI 语音合成请求耗时: {elapsed_time:.3f} 秒")
+            asyncio.run_coroutine_threadsafe(
+                self.websocket.send(
+                    json.dumps(
+                        {
+                            "type": "server",
+                            "msg": "语音合成请求首个分片耗时",
+                            "duration": round(elapsed_time, 3),
+                            "session_id": self.session_id,
+                            "model": 3,
+                        }
+                    )
+                ),
+                self.loop,
+            )
         if tts_file is None:
             self.logger.bind(tag=TAG).error(f"tts转换失败或者文本为指令跳过，{text}")
             return None, text, text_index

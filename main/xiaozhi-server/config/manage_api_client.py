@@ -140,9 +140,34 @@ def get_agent_models(
         json={
             "macAddress": mac_address,
             "clientId": client_id,
-            "selectedModule": selected_module,
+            "selectedModule": selected_module
         },
     )
+
+
+def get_mac(
+    authorization: str,
+    mac: str
+) -> Optional[Dict]:
+    """获取代理模型配置"""
+    response = ManageApiClient._instance._execute_request(
+        "POST",
+        "/config/get-mac",
+        json={
+            "authorization": authorization,
+            "mac": mac,
+            "platform": 5,
+        },
+    )
+    if response is None:
+        raise RuntimeError("接口无响应")
+
+    if response.get("mac") is None:
+        raise RuntimeError(f"接口异常: {response.get('msg')}")
+
+    return response.get("mac")
+
+
 
 
 def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[Dict]:

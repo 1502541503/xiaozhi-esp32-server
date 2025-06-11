@@ -2,7 +2,7 @@ import os
 import argparse
 import yaml
 from collections.abc import Mapping
-from config.manage_api_client import init_service, get_server_config, get_agent_models
+from config.manage_api_client import init_service, get_server_config, get_agent_models,get_mac
 
 
 # 添加全局配置缓存
@@ -70,6 +70,11 @@ def get_config_from_api(config):
 def get_private_config_from_api(config, device_id, client_id):
     """从Java API获取私有配置"""
     return get_agent_models(device_id, client_id, config["selected_module"])
+
+
+def get_mac_api(authorization,mac):
+    """从Java API获取私有配置"""
+    return get_mac(authorization,mac)
 
 
 def ensure_directories(config):

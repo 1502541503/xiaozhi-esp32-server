@@ -755,7 +755,7 @@
         if (isAudioBuffering || isAudioPlaying) return;
 
         isAudioBuffering = true;
-        log("开始音频缓冲...", 'info');
+        //log("开始音频缓冲...", 'info');
 
         // 先尝试初始化解码器，以便在播放时已准备好
         initOpusDecoder().catch(error => {
@@ -781,7 +781,7 @@
             // 当累积了足够的音频包，开始播放
             if (audioBufferQueue.length >= BUFFER_THRESHOLD) {
                 clearInterval(bufferCheckInterval);
-                log(`已缓冲 ${audioBufferQueue.length} 个音频包，开始播放`, 'info');
+                //log(`已缓冲 ${audioBufferQueue.length} 个音频包，开始播放`, 'info');
                 playBufferedAudio();
             }
         }, 50);
@@ -905,7 +905,7 @@
                             gainNode.connect(audioContext.destination);
 
                             this.lastPlayTime = audioContext.currentTime;
-                            log(`开始播放 ${currentSamples.length} 个样本，约 ${(currentSamples.length / SAMPLE_RATE).toFixed(2)} 秒`, 'info');
+                            // log(`开始播放 ${currentSamples.length} 个样本，约 ${(currentSamples.length / SAMPLE_RATE).toFixed(2)} 秒`, 'info');
 
                             // 播放结束后的处理
                             this.source.onended = () => {
@@ -1329,7 +1329,11 @@
             log(`停止录音错误: ${error.message}`, 'error');
         }
     }
+let llmRequestStartTime = null;     // 请求 LLM 的时间
+let llmFirstFrameLogged = false;    // 是否已打印首帧耗时
 
+let ttsRequestStartTime = null;     // 请求 TTS 的时间
+let ttsFirstFrameLogged = false;    // 是否已打印首帧耗时
 
     // 连接WebSocket服务器
     async function connectToServer() {
@@ -1341,7 +1345,7 @@
 
         const url = serverUrlInput.value.trim();
         if (url === '') return;
-
+        log('URL=='+url);
         try {
             // 获取并验证配置
             const config = getConfig();
@@ -1364,8 +1368,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Device-Id': config.deviceId,
-                        'Client-Id': config.clientId
+                        'Device-Id': config.deviceId
                     },
                     body: JSON.stringify({
                         "version": 0,
@@ -1432,6 +1435,7 @@
             // 添加认证参数
             connUrl.searchParams.append('device-id', config.deviceId);
             connUrl.searchParams.append('client-id', config.clientId);
+            connUrl.searchParams.append('authorization', "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj");
 
             log(`正在连接: ${connUrl.toString()}`, 'info');
             websocket = new WebSocket(connUrl.toString());
@@ -1499,6 +1503,8 @@
                 connectionStatus.style.color = 'red';
             };
 
+
+
             websocket.onmessage = function (event) {
                 try {
                     // 检查是否为文本消息
@@ -1510,8 +1516,10 @@
                         } else if (message.type === 'tts') {
                             // TTS状态消息
                             if (message.state === 'start') {
+                                ttsFirstFrameLogged = false; // 重置首帧标志
                                 log('服务器开始发送语音', 'info');
                             } else if (message.state === 'sentence_start') {
+
                                 log(`服务器发送语音段: ${message.text}`, 'info');
                                 // 添加文本到会话记录
                                 if (message.text) {
@@ -1543,6 +1551,9 @@
                             if (message.text && message.text !== '😊') {
                                 addMessage(message.text);
                             }
+                        }else if (message.type === 'server') {
+                            // 耗时情况
+                            log(`${message.msg}: ${message.duration}秒`, 'info');
                         } else {
                             // 未知消息类型
                             log(`未知消息类型: ${message.type}`, 'info');
@@ -1631,6 +1642,7 @@
 
     // 发送文本消息
     function sendTextMessage() {
+
         const message = messageInput.value.trim();
         if (message === '' || !websocket || websocket.readyState !== WebSocket.OPEN) return;
 
@@ -1647,7 +1659,13 @@
             websocket.send(JSON.stringify(listenMessage));
             addMessage(message, true);
             log(`发送文本消息: ${message}`, 'info');
+            // 请求语音合成前
+            ttsRequestStartTime = Date.now();
+            ttsFirstFrameLogged = false;
 
+            // 请求 LLM 前
+            llmRequestStartTime = Date.now();
+            llmFirstFrameLogged = false;
             messageInput.value = '';
         } catch (error) {
             log(`发送消息错误: ${error.message}`, 'error');

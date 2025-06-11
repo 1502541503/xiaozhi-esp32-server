@@ -39,8 +39,11 @@ async def handleAudioMessage(conn, audio):
         if len(conn.asr_audio) < 15:
             conn.asr_server_receive = True
         else:
+            if not hasattr(conn, 'asr_start_time') or conn.asr_start_time is None:
+                conn.asr_start_time = time.time()
             raw_text, _ = await conn.asr.speech_to_text(conn.asr_audio, conn.session_id)  # 确保ASR模块返回原始文本
             conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
+
             text_len, _ = remove_punctuation_and_length(raw_text)
             if text_len > 0:
                 # 使用自定义模块进行上报
