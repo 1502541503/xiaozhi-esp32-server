@@ -1,4 +1,6 @@
+import json
 import os
+import time
 import wave
 import copy
 import uuid
@@ -38,6 +40,7 @@ class ASRProviderBase(ABC):
         while not conn.stop_event.is_set():
             try:
                 message = conn.asr_audio_queue.get(timeout=1)
+
                 future = asyncio.run_coroutine_threadsafe(
                     handleAudioMessage(conn, message),
                     conn.loop,
@@ -77,9 +80,13 @@ class ASRProviderBase(ABC):
 
     # 处理语音停止
     async def handle_voice_stop(self, conn, asr_audio_task):
+        start_time = time.time()
+        first_log = True
+
         raw_text, _ = await self.speech_to_text(
             asr_audio_task, conn.session_id, conn.audio_format
         )  # 确保ASR模块返回原始文本
+
         conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
         text_len, _ = remove_punctuation_and_length(raw_text)
         self.stop_ws_connection()

@@ -36,7 +36,9 @@ async def handleTextMessage(conn, message):
             if msg_json["state"] == "start":
                 conn.client_have_voice = True
                 conn.client_voice_stop = False
+                conn.client_is_speaking = False
             elif msg_json["state"] == "stop":
+                conn.logger.bind(tag=TAG).info(f"要打断了=============：{message}")
                 conn.client_have_voice = True
                 conn.client_voice_stop = True
                 if len(conn.asr_audio) > 0:
@@ -44,11 +46,16 @@ async def handleTextMessage(conn, message):
             elif msg_json["state"] == "detect":
                 conn.client_have_voice = False
                 conn.asr_audio.clear()
+                conn.client_abort = False
                 if "text" in msg_json:
                     original_text = msg_json["text"]  # 保留原始文本
                     filtered_len, filtered_text = remove_punctuation_and_length(
                         original_text
                     )
+
+                    text = msg_json["text"]
+                    imgurl = msg_json.get("imgUrl")  # 新增支持图片字段
+                    _, text = remove_punctuation_and_length(text)
 
                     # 识别是否是唤醒词
                     is_wakeup_words = filtered_text in conn.config.get("wakeup_words")

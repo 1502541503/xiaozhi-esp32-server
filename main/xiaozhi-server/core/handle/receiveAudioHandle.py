@@ -24,10 +24,13 @@ async def handleAudioMessage(conn, audio):
 
     if have_voice:
         if conn.client_is_speaking:
+            conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
             await handleAbortMessage(conn)
     # 设备长时间空闲检测，用于say goodbye
     await no_voice_close_connect(conn, have_voice)
     # 接收音频
+    conn.asr_start_time = time.time()
+    conn.asr_logged = False
     await conn.asr.receive_audio(conn, audio, have_voice)
 
 
@@ -50,6 +53,7 @@ async def startToChat(conn, text):
             await max_out_size(conn)
             return
     if conn.client_is_speaking:
+        conn.logger.bind(tag=TAG).info(f"检测到字数问题？=============")
         await handleAbortMessage(conn)
 
     # 首先进行意图分析
@@ -90,7 +94,7 @@ async def startToChat(conn, text, imgurl=None):
     if conn.intent_type == "function_call" and imgurl is None:
         conn.executor.submit(conn.chat_with_function_calling, text)
     else:
-        conn.executor.submit(conn.chat, text,imgurl)
+        conn.executor.submit(conn.chat, text,[],imgurl)
 
 
 async def no_voice_close_connect(conn, have_voice):
@@ -110,15 +114,19 @@ async def no_voice_close_connect(conn, have_voice):
         ):
             conn.close_after_chat = True
             conn.client_abort = False
-            end_prompt = conn.config.get("end_prompt", {})
-            if end_prompt and end_prompt.get("enable", True) is False:
-                conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
-                await conn.close()
-                return
-            prompt = end_prompt.get("prompt")
-            if not prompt:
-                prompt = "请你以```时间过得真快```未来头，用富有感情、依依不舍的话来结束这场对话吧。！"
-            await startToChat(conn, prompt)
+            # end_prompt = conn.config.get("end_prompt", {})
+            # if end_prompt and end_prompt.get("enable", True) is False:
+            #     conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
+            #     await conn.close()
+            #     return
+            # prompt = end_prompt.get("prompt")
+            # if not prompt:
+            #     prompt = "请你以```时间过得真快```未来头，用富有感情、依依不舍的话来结束这场对话吧。！"
+            # await startToChat(conn, prompt)
+
+            conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
+            await conn.close()
+            return
 
 
 async def max_out_size(conn):

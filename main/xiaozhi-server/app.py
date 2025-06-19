@@ -65,7 +65,9 @@ async def main():
     ota_task = asyncio.create_task(ota_server.start())
 
     read_config_from_api = config.get("read_config_from_api", False)
+    print("当前 config 配置为：", config)
     port = int(config["server"].get("http_port", 8003))
+
     if not read_config_from_api:
         logger.bind(tag=TAG).info(
             "OTA接口是\t\thttp://{}:{}/xiaozhi/ota/",

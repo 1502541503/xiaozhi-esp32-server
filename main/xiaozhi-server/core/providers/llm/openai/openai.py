@@ -41,6 +41,7 @@ class LLMProvider(LLMProviderBase):
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def response(self, session_id, dialogue, **kwargs):
+        print(f"response openai：{kwargs}")
         try:
             responses = self.client.chat.completions.create(
                 model=self.model_name,

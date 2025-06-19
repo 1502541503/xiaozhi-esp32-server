@@ -74,7 +74,7 @@ class ManageApiClient:
         elif result.get("code") == 10042:
             raise DeviceBindException(result.get("msg"))
         elif result.get("code") != 0:
-            raise Exception(f"API返回错误: {result.get('msg', '未知错误')}")
+            raise Exception(f"error: {result.get('msg', '未知错误')}")
 
         # 返回成功数据
         return result.get("data") if result.get("code") == 0 else None
@@ -162,8 +162,11 @@ def get_mac(
     if response is None:
         raise RuntimeError("接口无响应")
 
+    print(f"msg==={response.get('msg')}")
+    print(f"mac==={response.get('mac')}")
+
     if response.get("mac") is None:
-        raise RuntimeError(f"接口异常: {response.get('msg')}")
+        raise RuntimeError(f"{response.get('msg')}")
 
     return response.get("mac")
 

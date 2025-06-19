@@ -34,9 +34,7 @@ from core.handle.functionHandler import FunctionHandler
 from plugins_func.loadplugins import auto_import_modules
 from plugins_func.register import Action, ActionResponse
 from core.auth import AuthMiddleware, AuthenticationError
-from core.mcp.manager import MCPManager
-#from config.config_loader import get_private_config_from_api,get_mac_api
-from config.config_loader import get_private_config_from_api
+from config.config_loader import get_private_config_from_api, get_mac_api
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 from config.logger import setup_logging, build_module_string, update_module_string
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
@@ -154,77 +152,64 @@ class ConnectionHandler:
         # {"mcp":true} 表示启用MCP功能
         self.features = None
 
-    def send_error_and_close(self, message: str):
-        """
-        发送错误消息给客户端，然后关闭 WebSocket 连接。
-        """
-        # 发送消息
-        asyncio.run_coroutine_threadsafe(
-            self.websocket.send(json.dumps({
-                "type": "server",
-                "status": "error",
-                "message": message
-            })),
-            self.loop
-        )
-        # 关闭连接
-        asyncio.run_coroutine_threadsafe(
-            self.websocket.close(code=1000, reason=message),
-            self.loop
-        )
-
-    def _validate_token(self, token: str) -> bool:
-        # 示例：硬编码允许的 token 列表
-        valid_tokens = {"uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj", "sma123"}
-        return token in valid_tokens
-
     async def handle_connection(self, ws):
+        # self.headers = dict(ws.request.headers)
+        # # 这里是授权校验 暂时注释不发版本
+        # if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
+        #     # 尝试从 URL 的查询参数中获取 device-id
+        #     from urllib.parse import parse_qs, urlparse
+        #     # 从 WebSocket 请求中获取路径
+        #     request_path = ws.request.path
+        #     if not request_path:
+        #         self.logger.bind(tag=TAG).error("无法获取请求路径")
+        #         return
+        #     parsed_url = urlparse(request_path)
+        #     query_params = parse_qs(parsed_url.query)
+        #     if "device-id" in query_params:
+        #         self.headers["device-id"] = query_params["device-id"][0]
+        #         self.headers["client-id"] = query_params["client-id"][0]
+        #         self.headers["authorization"] = query_params["authorization"][0]
+        #
+        # if self.headers.get("authorization") is None:
+        #     self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
+        #     await ws.send(json.dumps({
+        #         "type": "server",
+        #         "status": "error",
+        #         "message": "Missing authorization information, please confirm if authorization is included"
+        #     }))
+        #     await self.close(ws)
+        #     return
+        # try:
+        #     mac_authorize = get_mac_api(
+        #         self.headers.get("authorization"),
+        #         self.headers.get("device-id"),
+        #     )
+        #
+        #     if not mac_authorize:
+        #         self.logger.bind(tag=TAG).error("设备未授权")
+        #         await ws.send(json.dumps({
+        #             "type": "server",
+        #             "code": "403",
+        #             "message": "Mac unauthorized"
+        #         }))
+        #         await self.close(ws)
+        #         return
+        #
+        #     self.logger.bind(tag=TAG).info("设备已授权")
+        #
+        # except Exception as e:
+        #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
+        #     await ws.send(json.dumps({
+        #         "type": "server",
+        #         "code": "403",
+        #         "message": f"{str(e)}"
+        #     }))
+        #     await self.close(ws)
+        #     return
+
         try:
             # 获取并验证headers
             self.headers = dict(ws.request.headers)
-            # 这里是授权校验 暂时注释不发版本
-            # if self.headers.get("device-id", None) is None:
-            #     # 尝试从 URL 的查询参数中获取 device-id
-            #     from urllib.parse import parse_qs, urlparse
-            #     # 从 WebSocket 请求中获取路径
-            #     request_path = ws.request.path
-            #     if not request_path:
-            #         self.logger.bind(tag=TAG).error("无法获取请求路径")
-            #         return
-            #     parsed_url = urlparse(request_path)
-            #     query_params = parse_qs(parsed_url.query)
-            #     if "device-id" in query_params:
-            #         self.headers["device-id"] = query_params["device-id"][0]
-            #         self.headers["client-id"] = query_params["client-id"][0]
-            #         self.headers["authorization"] = query_params["authorization"][0]
-            #
-            # try:
-            #     mac_authorize = get_mac_api(
-            #         self.headers.get("authorization"),
-            #         self.headers.get("device-id"),
-            #     )
-            #
-            #     if not mac_authorize:
-            #         self.logger.bind(tag=TAG).error("设备未授权")
-            #         await ws.send(json.dumps({
-            #             "type": "server",
-            #             "status": "error",
-            #             "message": "设备未授权，请联系管理员"
-            #         }))
-            #         await self.close(ws)
-            #         return
-            #
-            #     self.logger.bind(tag=TAG).info("设备已授权")
-            #
-            # except Exception as e:
-            #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
-            #     await ws.send(json.dumps({
-            #         "type": "server",
-            #         "status": "error",
-            #         "message": f"授权校验失败: {str(e)}"
-            #     }))
-            #     await self.close(ws)
-            #     return
 
             if self.headers.get("device-id", None) is None:
                 # 尝试从 URL 的查询参数中获取 device-id
@@ -272,7 +257,6 @@ class ConnectionHandler:
             try:
                 async for message in self.websocket:
                     await self._route_message(message)
-
             except websockets.exceptions.ConnectionClosed:
                 self.logger.bind(tag=TAG).info("客户端断开连接")
 
@@ -466,7 +450,7 @@ class ConnectionHandler:
             private_config = get_private_config_from_api(
                 self.config,
                 self.headers.get("device-id"),
-                self.headers.get("client-id", self.headers.get("device-id"))
+                self.headers.get("client-id", self.headers.get("device-id")),
             )
             private_config["delete_audio"] = bool(self.config.get("delete_audio", True))
             self.logger.bind(tag=TAG).info(
@@ -651,9 +635,8 @@ class ConnectionHandler:
         # 更新系统prompt至上下文
         self.dialogue.update_system_message(self.prompt)
 
-    def chat(self, query, tool_call=False):
-        self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
-    def chat(self, query, imgurl=None):
+    def chat(self, query, tool_call=False, imgurl=None):
+        print("进入 chat：", imgurl)
         if hasattr(self, 'asr_start_time') and self.asr_start_time:
             elapsed = time.time() - self.asr_start_time
             self.logger.bind(tag=TAG).info(f"语音转文本首帧耗时：{elapsed:.3f} 秒")
@@ -673,165 +656,15 @@ class ConnectionHandler:
             )
             self.asr_start_time = None
         self.logger.bind(tag=TAG).info(f"开始对话了")
-        print("进入 chat：", imgurl)
-
-        self.dialogue.put(Message(role="user", content=query))
-
-        response_message = []
-        processed_chars = 0  # 跟踪已处理的字符位置
-        try:
-            # 使用带记忆的对话
-            memory_str = None
-            if self.memory is not None:
-                future = asyncio.run_coroutine_threadsafe(
-                    self.memory.query_memory(query), self.loop
-                )
-                memory_str = future.result()
-
-            self.logger.bind(tag=TAG).debug(f"记忆内容: {memory_str}")
-
-            # 构造图文混合消息（Qwen-VL 等多模态模型格式）
-            if imgurl and getattr(self.llm, "provider", "") != "AliBL":
-                messages = [{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": query},
-                    {"type": "image_url", "image_url": {"url": imgurl}}
-                ]
-            }]
-            else:
-                messages = self.dialogue.get_llm_dialogue_with_memory(memory_str)
-
-            start_time = time.time()
-
-            if getattr(self.llm, "provider", "") == "AliBL":
-                llm_responses = self.llm.response(
-                    self.session_id, messages, imgurl=imgurl
-                )
-            else:
-                llm_responses = self.llm.response(
-                    self.session_id, messages
-                )
-
-
-        except Exception as e:
-            self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
-            return None
-
+        self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
         self.llm_finish_task = False
-        text_index = 0
-        self.logger.bind(tag=TAG).info(f"AI llm_responses: {llm_responses}")
-        for content in llm_responses:
-            response_message.append(content)
-            if self.client_abort:
-                break
-
-            # 合并当前全部文本并处理未分割部分
-            full_text = "".join(response_message)
-            current_text = full_text[processed_chars:]  # 从未处理的位置开始
-
-            # 查找最后一个有效标点
-            punctuations = ("。", ".", "？", "?", "！", "!", "；", ";", "：")
-            last_punct_pos = -1
-            number_flag = True
-            for punct in punctuations:
-                pos = current_text.rfind(punct)
-                prev_char = current_text[pos - 1] if pos - 1 >= 0 else ""
-                # 如果.前面是数字统一判断为小数
-                if prev_char.isdigit() and punct == ".":
-                    number_flag = False
-                if pos > last_punct_pos and number_flag:
-                    last_punct_pos = pos
-
-            # 找到分割点则处理
-            if last_punct_pos != -1:
-                segment_text_raw = current_text[: last_punct_pos + 1]
-                segment_text = get_string_no_punctuation_or_emoji(segment_text_raw)
-                if segment_text:
-                    # 强制设置空字符，测试TTS出错返回语音的健壮性
-                    text_index += 1
-                    self.logger.bind(tag=TAG).info(f"AI tts_first_text_index: {self.tts_first_text_index}")
-                    if self.tts_first_text_index == -1:
-                        end_time = time.time()
-                        elapsed_time = end_time - start_time
-                        self.logger.bind(tag=TAG).info(f"AI 模型请求耗时: {elapsed_time:.3f} 秒")
-                        asyncio.run_coroutine_threadsafe(
-                            self.websocket.send(
-                                json.dumps(
-                                    {
-                                        "type": "server",
-                                        "msg": "模型请求耗时",
-                                        "duration": round(elapsed_time, 3),
-                                        "session_id": self.session_id,
-                                        "model": 2
-                                    }
-                                )
-                            ),
-                            self.loop,
-                        )
-                    self.recode_first_last_text(segment_text, text_index)
-
-
-                    future = self.executor.submit(
-                        self.speak_and_play, segment_text, text_index
-                    )
-
-
-                    self.tts_queue.put((future, text_index))
-                    processed_chars += len(segment_text_raw)  # 更新已处理字符位置
-
-        # 处理最后剩余的文本
-        full_text = "".join(response_message)
-        remaining_text = full_text[processed_chars:]
-        if remaining_text:
-            segment_text = get_string_no_punctuation_or_emoji(remaining_text)
-            if segment_text:
-                text_index += 1
-
-                self.logger.bind(tag=TAG).info(f"AI text_index: {text_index}")
-                if text_index == 1:
-                    end_time = time.time()
-                    elapsed_time = end_time - start_time
-                    self.logger.bind(tag=TAG).info(f"AI 模型请求耗时: {elapsed_time:.3f} 秒")
-                    asyncio.run_coroutine_threadsafe(
-                        self.websocket.send(
-                            json.dumps(
-                                {
-                                    "type": "server",
-                                    "msg": "模型请求耗时",
-                                    "duration": round(elapsed_time, 3),
-                                    "session_id": self.session_id,
-                                    "model": 2
-                                }
-                            )
-                        ),
-                        self.loop,
-                    )
-
-                self.recode_first_last_text(segment_text, text_index)
-                future = self.executor.submit(
-                    self.speak_and_play, segment_text, text_index
-                )
-                self.tts_queue.put((future, text_index))
-
-        self.llm_finish_task = True
-        self.dialogue.put(Message(role="assistant", content="".join(response_message)))
-        self.logger.bind(tag=TAG).debug(
-            json.dumps(self.dialogue.get_llm_dialogue(), indent=4, ensure_ascii=False)
-        )
-        return True
-
-    def chat_with_function_calling(self, query, tool_call=False):
-        print("进入 chat_with_function_calling：")
-        self.logger.bind(tag=TAG).debug(f"Chat with function calling start: {query}")
-        """Chat with function calling for intent detection using streaming"""
 
         if not tool_call:
             self.dialogue.put(Message(role="user", content=query))
 
         # Define intent functions
         functions = None
-        if self.intent_type == "function_call" and hasattr(self, "func_handler"):
+        if self.intent_type == "function_call" and hasattr(self, "func_handler") and getattr(self.llm, "provider", "") != "AliBL":
             functions = self.func_handler.get_functions()
         if hasattr(self, "mcp_client"):
             mcp_tools = self.mcp_client.get_available_tools()
@@ -853,18 +686,38 @@ class ConnectionHandler:
             uuid_str = str(uuid.uuid4()).replace("-", "")
             self.sentence_id = uuid_str
 
-            if functions is not None:
+            # 构造图文混合消息（Qwen-VL 等多模态模型格式）
+            if imgurl and getattr(self.llm, "provider", "") != "AliBL":
+                messages = [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": query},
+                        {"type": "image_url", "image_url": {"url": imgurl}}
+                    ]
+                }]
+            else:
+                messages = self.dialogue.get_llm_dialogue_with_memory(memory_str)
+            start_time = time.time()
+            if functions is not None and getattr(self.llm, "provider", "") != "AliBL":
                 # 使用支持functions的streaming接口
+                print(f"进入====：2")
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
                     self.dialogue.get_llm_dialogue_with_memory(memory_str),
                     functions=functions,
                 )
             else:
-                llm_responses = self.llm.response(
-                    self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(memory_str),
-                )
+
+                if getattr(self.llm, "provider", "") == "AliBL":
+                    llm_responses = self.llm.response(
+                        self.session_id, messages,imgurl
+                    )
+                else:
+                    print(f"进入====：1")
+                    llm_responses = self.llm.response(
+                        self.session_id,
+                        self.dialogue.get_llm_dialogue_with_memory(memory_str),
+                    )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
             return None
@@ -877,6 +730,7 @@ class ConnectionHandler:
         content_arguments = ""
         text_index = 0
         self.client_abort = False
+
         for response in llm_responses:
             if self.client_abort:
                 break
@@ -906,37 +760,29 @@ class ConnectionHandler:
                 if not tool_call_flag:
                     response_message.append(content)
                     if text_index == 0:
+
+                        elapsed = time.time() - start_time
+                        self.logger.bind(tag=TAG).info(f"问答耗时：{elapsed:.3f} 秒")
+                        asyncio.run_coroutine_threadsafe(
+                            self.websocket.send(
+                                json.dumps(
+                                    {
+                                        "type": "server",
+                                        "msg": "模型请求耗时",
+                                        "duration": round(elapsed, 3),
+                                        "session_id": self.session_id,
+                                        "model": 2
+                                    }
+                                )
+                            ),
+                            self.loop,
+                        )
                         self.tts.tts_text_queue.put(
                             TTSMessageDTO(
                                 sentence_id=self.sentence_id,
                                 sentence_type=SentenceType.FIRST,
                                 content_type=ContentType.ACTION,
                             )
-
-                    if self.client_abort:
-                        break
-
-                    full_text = "".join(response_message)
-                    current_text = full_text[processed_chars:]  # 从未处理的位置开始
-
-                    # 查找最后一个有效标点
-                    punctuations = ("。", ".", "？", "?", "！", "!", "；", ";", "：")
-                    last_punct_pos = -1
-                    number_flag = True
-                    for punct in punctuations:
-                        pos = current_text.rfind(punct)
-                        prev_char = current_text[pos - 1] if pos - 1 >= 0 else ""
-                        # 如果.前面是数字统一判断为小数
-                        if prev_char.isdigit() and punct == ".":
-                            number_flag = False
-                        if pos > last_punct_pos and number_flag:
-                            last_punct_pos = pos
-
-                    # 找到分割点则处理
-                    if last_punct_pos != -1:
-                        segment_text_raw = current_text[: last_punct_pos + 1]
-                        segment_text = get_string_no_punctuation_or_emoji(
-                            segment_text_raw
                         )
                     self.tts.tts_text_queue.put(
                         TTSMessageDTO(

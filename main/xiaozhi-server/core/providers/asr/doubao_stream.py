@@ -1,5 +1,6 @@
 import json
 import gzip
+import time
 import uuid
 import asyncio
 import websockets
@@ -179,6 +180,9 @@ class ASRProvider(ASRProviderBase):
                             for utterance in utterances:
                                 if utterance.get("definite", False):
                                     self.text = utterance["text"]
+
+
+
                                     logger.bind(tag=TAG).info(
                                         f"识别到文本: {self.text}"
                                     )

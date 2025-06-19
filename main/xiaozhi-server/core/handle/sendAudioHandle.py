@@ -34,6 +34,7 @@ emoji_map = {
 
 async def sendAudioMessage(conn, sentenceType, audios, text):
     # 发送句子开始消息
+    start_time = time.time()
     conn.logger.bind(tag=TAG).info(f"发送音频消息: {sentenceType}, {text}")
     if text is not None:
         emotion = analyze_emotion(text)
@@ -48,8 +49,46 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
                 }
             )
         )
+
+    if text is not None:
+        short_cmd_prefixes = [
+            "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
+            "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
+            "开启勿扰", "视觉识别", "关闭勿扰", "停止录像", "音量调整",
+            "Answer the call", "Hang up the call", "Check the battery level",
+            "Take a photo", "Record a video", "Play some music", "Resume playing",
+            "Pause the music", "Previous song", "Next song", "Volume down",
+            "Volume up", "Restart the device", "Turn on Do Not Disturb",
+            "Visual recognition", "Turn off Do Not Disturb", "Stop recording"
+        ]
+        clean_text = text.strip()
+        if any(clean_text.startswith(cmd) for cmd in short_cmd_prefixes):
+            conn.logger.bind(tag=TAG).info(f"命令式回答内容（跳过语音）: {clean_text}")
+            await send_tts_message(conn, "sentence_start", text)
+            await send_tts_message(conn, "sentence_end", text)
+            if conn.llm_finish_task and sentenceType == SentenceType.LAST:
+                pre_buffer = False
+                await send_tts_message(conn, "stop", None)
+                conn.client_is_speaking = False
+                if conn.close_after_chat:
+                    await conn.close()
+            return
+
     pre_buffer = False
     if conn.tts.tts_audio_first_sentence and text is not None:
+        elapsed = time.time() - start_time
+        conn.logger.bind(tag=TAG).info(f"文本转语音第一帧耗时: {round(elapsed, 3)}")
+        await conn.websocket.send(
+            json.dumps(
+                {
+                    "type": "server",
+                    "msg": "文本转语音第一帧耗时",
+                    "duration": round(elapsed, 3),
+                    "session_id": conn.session_id,
+                    "model": 3
+                }
+            )
+        )
         conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
         conn.tts.tts_audio_first_sentence = False
         pre_buffer = True
@@ -118,13 +157,13 @@ async def send_tts_message(conn, state, text=None):
     # TTS播放结束
     if state == "stop":
         # 播放提示音
-        tts_notify = conn.config.get("enable_stop_tts_notify", False)
-        if tts_notify:
-            stop_tts_notify_voice = conn.config.get(
-                "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
-            )
-            audios, _ = conn.tts.audio_to_opus_data(stop_tts_notify_voice)
-            await sendAudio(conn, audios)
+        # tts_notify = conn.config.get("enable_stop_tts_notify", False)
+        # if tts_notify:
+        #     stop_tts_notify_voice = conn.config.get(
+        #         "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
+        #     )
+        #     audios, _ = conn.tts.audio_to_opus_data(stop_tts_notify_voice)
+        #     await sendAudio(conn, audios)
         # 清除服务端讲话状态
         conn.clearSpeakStatus()
 
@@ -133,10 +172,10 @@ async def send_tts_message(conn, state, text=None):
 
 
 async def send_stt_message(conn, text):
-    end_prompt_str = conn.config.get("end_prompt", {}).get("prompt")
-    if end_prompt_str and end_prompt_str == text:
-        await send_tts_message(conn, "start")
-        return
+    # end_prompt_str = conn.config.get("end_prompt", {}).get("prompt")
+    # if end_prompt_str and end_prompt_str == text:
+    #     await send_tts_message(conn, "start")
+    #     return
 
     """发送 STT 状态消息"""
     stt_text = get_string_no_punctuation_or_emoji(text)

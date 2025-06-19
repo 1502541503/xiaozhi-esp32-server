@@ -81,6 +81,7 @@ class TTSProviderBase(ABC):
     def to_tts(self, text):
         text = MarkdownCleaner.clean_markdown(text)
         max_repeat_time = 5
+
         if self.delete_audio_file:
             # 需要删除文件的直接转为音频数据
             while max_repeat_time > 0:
@@ -121,40 +122,6 @@ class TTSProviderBase(ABC):
                         if os.path.exists(tmp_file):
                             os.remove(tmp_file)
                         max_repeat_time -= 1
-
-        short_cmd_prefixes = [
-            "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
-            "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
-            "开启勿扰", "视觉识别", "关闭勿扰", "停止录像", "音量调整",
-            "Answer the call", "Hang up the call", "Check the battery level",
-            "Take a photo", "Record a video", "Play some music", "Resume playing",
-            "Pause the music", "Previous song", "Next song", "Volume down",
-            "Volume up", "Restart the device", "Turn on Do Not Disturb",
-            "Visual recognition", "Turn off Do Not Disturb", "Stop recording"
-        ]
-
-        clean_text = text.strip()
-
-        # 判断是否属于预定义的短指令
-        if any(clean_text.startswith(cmd) for cmd in short_cmd_prefixes):
-            logger.bind(tag=TAG).info(f"命令式回答内容（跳过语音）: {clean_text}")
-            return None
-
-        tmp_file = self.generate_filename()
-        try:
-            max_repeat_time = 5
-            text = MarkdownCleaner.clean_markdown(text)
-            while not os.path.exists(tmp_file) and max_repeat_time > 0:
-                try:
-                    asyncio.run(self.text_to_speak(text, tmp_file))
-                except Exception as e:
-                    logger.bind(tag=TAG).warning(
-                        f"语音生成失败{5 - max_repeat_time + 1}次: {text}，错误: {e}"
-                    )
-                    # 未执行成功，删除文件
-                    if os.path.exists(tmp_file):
-                        os.remove(tmp_file)
-                    max_repeat_time -= 1
 
                 if max_repeat_time > 0:
                     logger.bind(tag=TAG).info(
@@ -249,6 +216,7 @@ class TTSProviderBase(ABC):
                     logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
                     continue
                 if message.sentence_type == SentenceType.FIRST:
+                    #self.conn.client_abort = False
                     # 初始化参数
                     self.tts_stop_request = False
                     self.processed_chars = 0

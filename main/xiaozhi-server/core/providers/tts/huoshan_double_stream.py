@@ -261,6 +261,11 @@ class TTSProvider(TTSProviderBase):
 
     async def text_to_speak(self, text, _):
         """发送文本到TTS服务"""
+        if not isinstance(text, str):
+            try:
+                text = text[0]
+            except (TypeError, IndexError):
+                text = ""
         try:
             # 建立新连接
             if self.ws is None:
