@@ -5,7 +5,6 @@ import java.util.*;
 import cn.hutool.json.JSONObject;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import lombok.AllArgsConstructor;
@@ -14,24 +13,23 @@ import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
-import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.agent.entity.AgentEntity;
+import xiaozhi.modules.agent.entity.AgentPluginMapping;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
+import xiaozhi.modules.agent.service.AgentPluginMappingService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
 import xiaozhi.modules.api.IotSolutionClient;
 import xiaozhi.modules.config.service.ConfigService;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
-import xiaozhi.modules.device.entity.DeviceMacEntity;
 import xiaozhi.modules.device.entity.ResponseWrapper;
 import xiaozhi.modules.device.entity.SmaProperties;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
-import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.dto.SysParamsDTO;
 import xiaozhi.modules.sys.dto.SysUserDTO;
 import xiaozhi.modules.sys.service.SysParamsService;
@@ -50,11 +48,10 @@ public class ConfigServiceImpl implements ConfigService {
     private final RedisUtils redisUtils;
     private final TimbreService timbreService;
     private final DeviceDao deviceDao;
+    private final AgentPluginMappingService agentPluginMappingService;
     private final SmaProperties smaProperties;
     @Autowired
     private SysUserService sysUserService;
-
-
 
     private final IotSolutionClient iotSolutionClient;
 
@@ -102,9 +99,6 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Override
     public Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule) {
-
-
-
         // 根据MAC地址查找设备
         DeviceEntity device = deviceService.getDeviceByMacAddress(macAddress);
         if (device == null) {
@@ -153,6 +147,19 @@ public class ConfigServiceImpl implements ConfigService {
             agent.setAsrModelId(null);
         }
 
+        // 添加函数调用参数信息
+        if (!Objects.equals(agent.getIntentModelId(), "Intent_nointent")) {
+            String agentId = agent.getId();
+            List<AgentPluginMapping> pluginMappings = agentPluginMappingService.agentPluginParamsByAgentId(agentId);
+            if (pluginMappings != null && !pluginMappings.isEmpty()) {
+                Map<String, Object> pluginParams = new HashMap<>();
+                for (AgentPluginMapping pluginMapping : pluginMappings) {
+                    pluginParams.put(pluginMapping.getProviderCode(), pluginMapping.getParamInfo());
+                }
+                result.put("plugins", pluginParams);
+            }
+        }
+
         // 构建模块配置
         buildModuleConfig(
                 agent.getAgentName(),
@@ -171,55 +178,6 @@ public class ConfigServiceImpl implements ConfigService {
 
         return result;
     }
-
-    @Override
-    public Result<Object> getMacAuthorize(String mac, Integer platform, String authorization) {
-        if(authorization.isEmpty()){
-            return new Result<>().error("Authorization empty");
-        }
-        if(!("Bearer "+smaProperties.getToken()).equals(authorization)){
-            return new Result<>().error("Authorization mismatched");
-        }
-
-
-        DeviceEntity device = deviceService.getDeviceByMacAddress(mac);
-        if(device==null){
-            ResponseWrapper<Boolean> clientDevice = iotSolutionClient.getMac(mac,platform);
-            if(clientDevice.getCode()!=0){
-                return new Result<>().error("No MAC address found");
-            }else if (!clientDevice.getData()){
-                return new Result<>().error("Mac unauthorized");
-            }
-            device = new DeviceEntity();
-            device.setAgentId(smaProperties.getAgentId()); //眼镜智能体
-            device.setMacAddress(mac);
-            SysUserDTO userDTO = sysUserService.getByUsername("admin");
-            saveDeviceActivation(device.getAgentId(),mac,userDTO.getId());
-        }
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("mac", mac);
-        return new Result<Object>().ok(jsonObject);
-    }
-
-
-    private void saveDeviceActivation(String agentId, String mac, Long userId) {
-        Date currentTime = new Date();
-        DeviceEntity deviceEntity = new DeviceEntity();
-        deviceEntity.setId(mac);
-        deviceEntity.setBoard("esp32s3");
-        deviceEntity.setAgentId(agentId);
-        deviceEntity.setAppVersion("1.0.0");
-        deviceEntity.setMacAddress(mac);
-        deviceEntity.setUserId(userId);
-        deviceEntity.setCreator(userId);
-        deviceEntity.setAutoUpdate(0);
-        deviceEntity.setCreateDate(currentTime);
-        deviceEntity.setUpdater(userId);
-        deviceEntity.setUpdateDate(currentTime);
-        deviceEntity.setLastConnectedAt(currentTime);
-        deviceDao.insert(deviceEntity);
-    }
-
 
     /**
      * 构建配置信息
@@ -353,6 +311,7 @@ public class ConfigServiceImpl implements ConfigService {
                             map.put("functions", functions);
                         }
                     }
+                    System.out.println("map: " + map);
                 }
                 if ("Memory".equals(modelTypes[i])) {
                     Map<String, Object> map = (Map<String, Object>) model.getConfigJson();
@@ -392,5 +351,54 @@ public class ConfigServiceImpl implements ConfigService {
         }
         result.put("prompt", prompt);
         result.put("summaryMemory", summaryMemory);
+    }
+
+
+    @Override
+    public Result<Object> getMacAuthorize(String mac, Integer platform, String authorization) {
+        if(authorization.isEmpty()){
+            return new Result<>().error("Authorization empty");
+        }
+        if(!("Bearer "+smaProperties.getToken()).equals(authorization)){
+            return new Result<>().error("Authorization mismatched");
+        }
+
+
+        DeviceEntity device = deviceService.getDeviceByMacAddress(mac);
+        if(device==null){
+            ResponseWrapper<Boolean> clientDevice = iotSolutionClient.getMac(mac,platform);
+            if(clientDevice.getCode()!=0){
+                return new Result<>().error("No MAC address found");
+            }else if (!clientDevice.getData()){
+                return new Result<>().error("Mac unauthorized");
+            }
+            device = new DeviceEntity();
+            device.setAgentId(smaProperties.getAgentId()); //眼镜智能体
+            device.setMacAddress(mac);
+            SysUserDTO userDTO = sysUserService.getByUsername("admin");
+            saveDeviceActivation(device.getAgentId(),mac,userDTO.getId());
+        }
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("mac", mac);
+        return new Result<Object>().ok(jsonObject);
+    }
+
+
+    private void saveDeviceActivation(String agentId, String mac, Long userId) {
+        Date currentTime = new Date();
+        DeviceEntity deviceEntity = new DeviceEntity();
+        deviceEntity.setId(mac);
+        deviceEntity.setBoard("esp32s3");
+        deviceEntity.setAgentId(agentId);
+        deviceEntity.setAppVersion("1.0.0");
+        deviceEntity.setMacAddress(mac);
+        deviceEntity.setUserId(userId);
+        deviceEntity.setCreator(userId);
+        deviceEntity.setAutoUpdate(0);
+        deviceEntity.setCreateDate(currentTime);
+        deviceEntity.setUpdater(userId);
+        deviceEntity.setUpdateDate(currentTime);
+        deviceEntity.setLastConnectedAt(currentTime);
+        deviceDao.insert(deviceEntity);
     }
 }

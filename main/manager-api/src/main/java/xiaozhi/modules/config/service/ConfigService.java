@@ -22,6 +22,8 @@ public interface ConfigService {
      */
     Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule);
 
+
+
     /**
      * 访问API直接授权保存
      *

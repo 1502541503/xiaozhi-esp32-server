@@ -12,7 +12,7 @@ spring:
     druid:
       #MySQL
       driver-class-name: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://rm-j6ca3vf35i70jyufpzo.mysql.rds.aliyuncs.com/xiaozhi_backup2?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&nullCatalogMeansCurrent=true
+      url: jdbc:mysql://rm-j6ca3vf35i70jyufpzo.mysql.rds.aliyuncs.com/xiaozhi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&nullCatalogMeansCurrent=true
       username: smawatch_test
       password: smawatch@2022
       initial-size: 10
@@ -39,7 +39,7 @@ spring:
   data:
     redis:
       host: 127.0.0.1         # Redis服务器地址
-      port: 6379              # Redis服务器连接端口
+      port: 32772              # Redis服务器连接端口
       password:              # Redis服务器连接密码（默认为空）
       database: 0            # Redis数据库索引（默认为0）
       timeout: 10000ms       # 连接超时时间（毫秒）
