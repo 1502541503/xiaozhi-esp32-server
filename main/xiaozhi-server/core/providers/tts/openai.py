@@ -17,6 +17,8 @@ class TTSProvider(TTSProviderBase):
             self.voice = config.get("private_voice")
         else:
             self.voice = config.get("voice", "alloy")
+        if config.get("model")=="tts-1-hd" or config.get("model")=="tts-1":
+            self.voice = config.get("voice", "alloy")
         self.response_format = config.get("format", "wav")
         self.audio_file_type = config.get("format", "wav")
 

@@ -20,14 +20,26 @@ class LLMProvider(LLMProviderBase):
         check_model_key("AliBLLLM", self.api_key)
 
     def response(self, session_id, dialogue, imgurl=None):
-        print(f"response AliBL：{imgurl}")
+        self.is_No_prompt = True
+        print(f"response AliBL：{dialogue}")
         try:
+            #处理上下文
+            recent_dialogue = []
+            for msg in reversed(dialogue):
+                if msg.get("role") in ("user", "assistant"):
+                    recent_dialogue.insert(0, msg)
+                    if len(recent_dialogue) == 4:  # 两轮 = 4 条（user + assistant）× 2
+                        break
+            dialogue = recent_dialogue
+
+            print(f"初始化后response AliBL：{dialogue}")
+
             # 处理dialogue
-            if self.is_No_prompt:
-                dialogue.pop(0)
-                logger.bind(tag=TAG).debug(
-                    f"【阿里百练API服务】处理后的dialogue: {dialogue}"
-                )
+            # if self.is_No_prompt:
+            #     dialogue.pop(0)
+            #     logger.bind(tag=TAG).debug(
+            #         f"【阿里百练API服务】处理后的dialogue: {dialogue}"
+            #     )
 
             # 构造调用参数
             call_params = {
@@ -47,14 +59,15 @@ class LLMProvider(LLMProviderBase):
                     f"【阿里百练API服务】附加图片链接: {imgurl}"
                 )
 
-            if self.memory_id != False:
-                # 百练memory需要prompt参数
-                prompt = dialogue[-1].get("content")
-                call_params["memory_id"] = self.memory_id
-                call_params["prompt"] = prompt
-                logger.bind(tag=TAG).debug(
-                    f"【阿里百练API服务】处理后的prompt: {prompt}"
-                )
+            # if self.memory_id != False:
+            #     # 百练memory需要prompt参数
+            #     print(f"进入配置prompt参数：{dialogue}")
+            #     prompt = dialogue[-1].get("content")
+            #     call_params["memory_id"] = self.memory_id
+            #     call_params["prompt"] = prompt
+            #     logger.bind(tag=TAG).debug(
+            #         f"【阿里百练API服务】处理后的prompt: {prompt}"
+            #     )
 
             stream_responses = Application.call(**call_params)
 

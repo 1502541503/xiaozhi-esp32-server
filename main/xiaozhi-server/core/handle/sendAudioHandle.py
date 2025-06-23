@@ -33,6 +33,8 @@ emoji_map = {
 
 
 async def sendAudioMessage(conn, sentenceType, audios, text):
+    if conn.client_abort:
+        return
     # 发送句子开始消息
     start_time = time.time()
     conn.logger.bind(tag=TAG).info(f"发送音频消息: {sentenceType}, {text}")

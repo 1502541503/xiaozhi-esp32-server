@@ -406,6 +406,23 @@ class TTSProvider(TTSProviderBase):
                     if res.optional.event == EVENT_TTSSentenceStart:
                         json_data = json.loads(res.payload.decode("utf-8"))
                         self.tts_text = json_data.get("text", "")
+
+                        if self.tts_text.strip() in [
+                                "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
+                                "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
+                                "开启勿扰", "视觉识别", "关闭勿扰", "停止录像", "音量调整",
+                                "Answer the call", "Hang up the call", "Check the battery level",
+                                "Take a photo", "Record a video", "Play some music", "Resume playing",
+                                "Pause the music", "Previous song", "Next song", "Volume down",
+                                "Volume up", "Restart the device", "Turn on Do Not Disturb",
+                                "Visual recognition", "Turn off Do Not Disturb", "Stop recording"
+                            ]:
+                            self.skip_tts = True
+                            logger.bind(tag=TAG).info(f"检测到跳过句子: {self.tts_text}")
+                            continue
+                        else:
+                            self.skip_tts = False
+
                         logger.bind(tag=TAG).debug(f"句子语音生成开始: {self.tts_text}")
                         self.tts_audio_queue.put(
                             (SentenceType.FIRST, [], self.tts_text)
@@ -433,6 +450,9 @@ class TTSProvider(TTSProviderBase):
                             # 后续句子缓存
                             opus_datas_cache = opus_datas_cache + opus_datas
                     elif res.optional.event == EVENT_TTSSentenceEnd:
+                        if getattr(self, "skip_tts", False):
+                            logger.bind(tag=TAG).info(f"跳过句子语音推送：{self.tts_text}")
+                            continue
                         logger.bind(tag=TAG).info(f"句子语音生成成功：{self.tts_text}")
                         if not is_first_sentence or first_sentence_segment_count > 10:
                             # 发送缓存的数据
@@ -681,6 +701,9 @@ class TTSProvider(TTSProviderBase):
                     payload = str.encode("{}")
                     await self.send_event(ws, header, optional, payload)
 
+                    skip_tts = False
+                    tts_text = ""
+
                     # 接收音频数据
                     while True:
                         msg = await ws.recv()
@@ -690,6 +713,13 @@ class TTSProvider(TTSProviderBase):
                             res.optional.event == EVENT_TTSResponse
                             and res.header.message_type == AUDIO_ONLY_RESPONSE
                         ):
+                            json_data = json.loads(res.payload.decode("utf-8"))
+                            tts_text = json_data.get("text", "")
+                            if tts_text.strip() in [...]:
+                                skip_tts = True
+                                logger.info(f"跳过句子: {tts_text}")
+                            else:
+                                skip_tts = False
                             opus_datas = self.wav_to_opus_data_audio_raw(res.payload)
                             audio_data.extend(opus_datas)
                         elif res.optional.event == EVENT_SessionFinished:

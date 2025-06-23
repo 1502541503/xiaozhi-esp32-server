@@ -1005,6 +1005,7 @@ class ConnectionHandler:
             self.report_queue.task_done()
 
     def clearSpeakStatus(self):
+        print(f"进入了clearSpeakStatus")
         self.client_is_speaking = False
         self.logger.bind(tag=TAG).debug(f"清除服务端讲话状态")
 
@@ -1043,6 +1044,7 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).error(f"关闭连接时出错: {e}")
 
     def clear_queues(self):
+        print(f"进入clear_queues{self.tts}")
         """清空所有任务队列"""
         if self.tts:
             self.logger.bind(tag=TAG).debug(

@@ -25,6 +25,14 @@ async def handleTextMessage(conn, message):
             await handleHelloMessage(conn, msg_json)
         elif msg_json["type"] == "abort":
             conn.logger.bind(tag=TAG).info(f"收到abort消息：{message}")
+            # 需要测试能否马上停止
+            conn.client_have_voice = True
+            conn.client_voice_stop = True
+            conn.client_abort = True
+
+            # conn.stop_event.is_set()
+            #
+            # conn.stop_event.set()
             await handleAbortMessage(conn)
         elif msg_json["type"] == "listen":
             conn.logger.bind(tag=TAG).info(f"收到listen消息：{message}")
