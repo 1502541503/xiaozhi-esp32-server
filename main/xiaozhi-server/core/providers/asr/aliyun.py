@@ -162,6 +162,7 @@ class ASRProvider(ASRProviderBase):
         request += "&enable_punctuation_prediction=true"
         request += "&enable_inverse_text_normalization=true"
         request += "&enable_voice_detection=false"
+        request += "&vocabulary_id=f3ac714295654d7d834831570b890b59"
         return request
 
     async def _send_request(self, pcm_data: bytes) -> Optional[str]:
@@ -195,7 +196,8 @@ class ASRProvider(ASRProviderBase):
             try:
                 body_json = json.loads(body)
                 status = body_json.get("status")
-
+                task_id = body_json.get("task_id")
+                print(f"task_id=={task_id}")
                 if status == 20000000:
                     result = body_json.get("result", "")
                     logger.bind(tag=TAG).debug(f"ASR结果: {result}")

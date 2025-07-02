@@ -79,9 +79,10 @@ class LLMProvider(LLMProviderBase):
                     yield f"【阿里百练API服务响应异常】{res.message}"
                     break
                 else:
-                    content = res.output.text or ""
-                    logger.bind(tag=TAG).info(f"【阿里百练API服务】====: {content}")
-                    yield content
+                    content = res.output.text or None
+                    if content is not None:
+                        logger.bind(tag=TAG).info(f"【阿里百练API服务】====: {content}")
+                        yield content
 
 
         except Exception as e:

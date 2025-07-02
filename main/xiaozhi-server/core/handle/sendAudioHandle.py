@@ -66,14 +66,12 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
         clean_text = text.strip()
         if any(clean_text.startswith(cmd) for cmd in short_cmd_prefixes):
             conn.logger.bind(tag=TAG).info(f"命令式回答内容（跳过语音）: {clean_text}")
+            conn.tts.tts_audio_first_sentence = False
+
             await send_tts_message(conn, "sentence_start", text)
             await send_tts_message(conn, "sentence_end", text)
-            if conn.llm_finish_task and sentenceType == SentenceType.LAST:
-                pre_buffer = False
-                await send_tts_message(conn, "stop", None)
-                conn.client_is_speaking = False
-                if conn.close_after_chat:
-                    await conn.close()
+            await send_tts_message(conn, "stop", None)
+            conn.client_abort = True
             return
 
     pre_buffer = False
@@ -111,7 +109,9 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
 
 # 播放音频
 async def sendAudio(conn, audios, pre_buffer=True):
+    conn.logger.bind(tag=TAG).info(f"sendAudio audios")
     if audios is None or len(audios) == 0:
+        conn.logger.bind(tag=TAG).info(f"sendAudio audios is None")
         return
     # 流控参数优化
     frame_duration = 60  # 帧时长（毫秒），匹配 Opus 编码
@@ -151,6 +151,7 @@ async def sendAudio(conn, audios, pre_buffer=True):
 
 
 async def send_tts_message(conn, state, text=None):
+    conn.logger.bind(tag=TAG).info(f"进入send_tts_message state: {state},text: {text}")
     """发送 TTS 状态消息"""
     message = {"type": "tts", "state": state, "session_id": conn.session_id}
     if text is not None:

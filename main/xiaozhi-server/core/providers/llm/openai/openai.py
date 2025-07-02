@@ -38,19 +38,32 @@ class LLMProvider(LLMProviderBase):
             f"意图识别参数初始化: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}")
 
         check_model_key("LLM", self.api_key)
-        self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
+
+        self.client = openai.OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            # Azure: https://<resource>.openai.azure.com/openai/deployments/<deployment-name>
+            default_headers={
+                "api-key": self.api_key
+            }
+        )
+
 
     def response(self, session_id, dialogue, **kwargs):
-        print(f"response openai：{kwargs}")
+        print(f"response openai：{dialogue}")
+        print(f"response openai：{self.model_name}")
+        print(f"response openai：{self.max_tokens}")
         try:
             responses = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=dialogue,
                 stream=True,
                 max_tokens=kwargs.get("max_tokens", self.max_tokens),
-                temperature=kwargs.get("temperature", self.temperature),
-                top_p=kwargs.get("top_p", self.top_p),
-                frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
+                # temperature=kwargs.get("temperature", self.temperature),
+                temperature=0.7,
+                # top_p=kwargs.get("top_p", self.top_p),
+                top_p=1.0,
+                # frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
             )
 
             is_active = True

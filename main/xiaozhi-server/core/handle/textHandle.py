@@ -44,7 +44,7 @@ async def handleTextMessage(conn, message):
             if msg_json["state"] == "start":
                 conn.client_have_voice = True
                 conn.client_voice_stop = False
-                conn.client_is_speaking = False
+                #conn.client_is_speaking = False
             elif msg_json["state"] == "stop":
                 conn.logger.bind(tag=TAG).info(f"要打断了=============：{message}")
                 conn.client_have_voice = True

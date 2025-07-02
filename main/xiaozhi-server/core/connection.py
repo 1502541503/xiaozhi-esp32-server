@@ -115,6 +115,7 @@ class ConnectionHandler:
         self.client_have_voice_last_time = 0.0
         self.client_no_voice_last_time = 0.0
         self.client_voice_stop = False
+        self.client_voice_frame_count = 0
 
         # asr相关变量
         # 因为实际部署时可能会用到公共的本地ASR，不能把变量暴露给公共ASR
@@ -153,61 +154,60 @@ class ConnectionHandler:
         self.features = None
 
     async def handle_connection(self, ws):
-        # self.headers = dict(ws.request.headers)
-        # # 这里是授权校验 暂时注释不发版本
-        # if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
-        #     # 尝试从 URL 的查询参数中获取 device-id
-        #     from urllib.parse import parse_qs, urlparse
-        #     # 从 WebSocket 请求中获取路径
-        #     request_path = ws.request.path
-        #     if not request_path:
-        #         self.logger.bind(tag=TAG).error("无法获取请求路径")
-        #         return
-        #     parsed_url = urlparse(request_path)
-        #     query_params = parse_qs(parsed_url.query)
-        #     if "device-id" in query_params:
-        #         self.headers["device-id"] = query_params["device-id"][0]
-        #         self.headers["client-id"] = query_params["client-id"][0]
-        #         self.headers["authorization"] = query_params["authorization"][0]
-        #
-        # if self.headers.get("authorization") is None:
-        #     self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
-        #     await ws.send(json.dumps({
-        #         "type": "server",
-        #         "status": "error",
-        #         "message": "Missing authorization information, please confirm if authorization is included"
-        #     }))
-        #     await self.close(ws)
-        #     return
-        # try:
-        #     mac_authorize = get_mac_api(
-        #         self.headers.get("authorization"),
-        #         self.headers.get("device-id"),
-        #     )
-        #
-        #     if not mac_authorize:
-        #         self.logger.bind(tag=TAG).error("设备未授权")
-        #         await ws.send(json.dumps({
-        #             "type": "server",
-        #             "code": "403",
-        #             "message": "Mac unauthorized"
-        #         }))
-        #         await self.close(ws)
-        #         return
-        #
-        #     self.logger.bind(tag=TAG).info("设备已授权")
-        #
-        # except Exception as e:
-        #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
-        #     await ws.send(json.dumps({
-        #         "type": "server",
-        #         "code": "403",
-        #         "message": f"{str(e)}"
-        #     }))
-        #     await self.close(ws)
-        #     return
-
         try:
+            # self.headers = dict(ws.request.headers)
+            # # 这里是授权校验 暂时注释不发版本
+            # if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
+            #     # 尝试从 URL 的查询参数中获取 device-id
+            #     from urllib.parse import parse_qs, urlparse
+            #     # 从 WebSocket 请求中获取路径
+            #     request_path = ws.request.path
+            #     if not request_path:
+            #         self.logger.bind(tag=TAG).error("无法获取请求路径")
+            #         return
+            #     parsed_url = urlparse(request_path)
+            #     query_params = parse_qs(parsed_url.query)
+            #     if "device-id" in query_params:
+            #         self.headers["device-id"] = query_params["device-id"][0]
+            #         self.headers["client-id"] = query_params["client-id"][0]
+            #         self.headers["authorization"] = query_params["authorization"][0]
+            #
+            # if self.headers.get("authorization") is None:
+            #     self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
+            #     await ws.send(json.dumps({
+            #         "type": "server",
+            #         "status": "error",
+            #         "message": "Missing authorization information, please confirm if authorization is included"
+            #     }))
+            #     await self.close(ws)
+            #     return
+            # try:
+            #     mac_authorize = get_mac_api(
+            #         self.headers.get("authorization"),
+            #         self.headers.get("device-id"),
+            #     )
+            #
+            #     if not mac_authorize:
+            #         self.logger.bind(tag=TAG).error("设备未授权")
+            #         await ws.send(json.dumps({
+            #             "type": "server",
+            #             "code": "403",
+            #             "message": "Mac unauthorized"
+            #         }))
+            #         await self.close(ws)
+            #         return
+            #
+            #     self.logger.bind(tag=TAG).info("设备已授权")
+            #
+            # except Exception as e:
+            #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
+            #     await ws.send(json.dumps({
+            #         "type": "server",
+            #         "code": "403",
+            #         "message": f"{str(e)}"
+            #     }))
+            #     await self.close(ws)
+            #     return
             # 获取并验证headers
             self.headers = dict(ws.request.headers)
 
@@ -478,6 +478,16 @@ class ConnectionHandler:
         init_vad = check_vad_update(self.common_config, private_config)
         init_asr = check_asr_update(self.common_config, private_config)
 
+        if init_vad:
+            self.config["VAD"] = private_config["VAD"]
+            self.config["selected_module"]["VAD"] = private_config["selected_module"][
+                "VAD"
+            ]
+        if init_asr:
+            self.config["ASR"] = private_config["ASR"]
+            self.config["selected_module"]["ASR"] = private_config["selected_module"][
+                "ASR"
+            ]
         if private_config.get("TTS", None) is not None:
             init_tts = True
             self.config["TTS"] = private_config["TTS"]
@@ -499,9 +509,17 @@ class ConnectionHandler:
         if private_config.get("Intent", None) is not None:
             init_intent = True
             self.config["Intent"] = private_config["Intent"]
-            self.config["selected_module"]["Intent"] = private_config[
-                "selected_module"
-            ]["Intent"]
+            model_intent = private_config.get("selected_module", {}).get("Intent", {})
+            self.config["selected_module"]["Intent"] = model_intent
+            # 加载插件配置
+            if model_intent != "Intent_nointent":
+                plugin_from_server = private_config.get("plugins", {})
+                for plugin, config_str in plugin_from_server.items():
+                    plugin_from_server[plugin] = json.loads(config_str)
+                self.config["plugins"] = plugin_from_server
+                self.config["Intent"][self.config["selected_module"]["Intent"]][
+                    "functions"
+                ] = plugin_from_server.keys()
         if private_config.get("prompt", None) is not None:
             self.config["prompt"] = private_config["prompt"]
         if private_config.get("summaryMemory", None) is not None:
@@ -636,7 +654,6 @@ class ConnectionHandler:
         self.dialogue.update_system_message(self.prompt)
 
     def chat(self, query, tool_call=False, imgurl=None):
-        print("进入 chat：", imgurl)
         if hasattr(self, 'asr_start_time') and self.asr_start_time:
             elapsed = time.time() - self.asr_start_time
             self.logger.bind(tag=TAG).info(f"语音转文本首帧耗时：{elapsed:.3f} 秒")
@@ -683,8 +700,8 @@ class ConnectionHandler:
                 )
                 memory_str = future.result()
 
-            uuid_str = str(uuid.uuid4()).replace("-", "")
-            self.sentence_id = uuid_str
+            #uuid_str = str(uuid.uuid4()).replace("-", "")
+            self.sentence_id = str(uuid.uuid4().hex)
 
             # 构造图文混合消息（Qwen-VL 等多模态模型格式）
             if imgurl and getattr(self.llm, "provider", "") != "AliBL":
@@ -707,7 +724,6 @@ class ConnectionHandler:
                     functions=functions,
                 )
             else:
-
                 if getattr(self.llm, "provider", "") == "AliBL":
                     llm_responses = self.llm.response(
                         self.session_id, messages,imgurl
@@ -1005,7 +1021,6 @@ class ConnectionHandler:
             self.report_queue.task_done()
 
     def clearSpeakStatus(self):
-        print(f"进入了clearSpeakStatus")
         self.client_is_speaking = False
         self.logger.bind(tag=TAG).debug(f"清除服务端讲话状态")
 
@@ -1044,7 +1059,6 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).error(f"关闭连接时出错: {e}")
 
     def clear_queues(self):
-        print(f"进入clear_queues{self.tts}")
         """清空所有任务队列"""
         if self.tts:
             self.logger.bind(tag=TAG).debug(
