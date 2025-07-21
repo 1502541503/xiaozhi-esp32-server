@@ -66,7 +66,7 @@ class LLMProvider(LLMProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"生成响应时出错: {e}")
 
-    def response_with_functions(self, session_id, dialogue, functions=None):
+    def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         logger.bind(tag=TAG).error(
             f"homeassistant不支持（function call），建议使用其他意图识别"
         )

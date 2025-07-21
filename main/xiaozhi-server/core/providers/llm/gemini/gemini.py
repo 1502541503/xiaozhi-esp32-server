@@ -115,7 +115,7 @@ class LLMProvider(LLMProviderBase):
     def response(self, session_id, dialogue, **kwargs):
         yield from self._generate(dialogue, None)
 
-    def response_with_functions(self, session_id, dialogue, functions=None):
+    def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         yield from self._generate(dialogue, self._build_tools(functions))
 
     def _generate(self, dialogue, tools):

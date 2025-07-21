@@ -119,7 +119,7 @@ async def startToChat(conn, text, imgurl=None):
 
     # 正常聊天流程
     await send_stt_message(conn, text)
-    conn.executor.submit(conn.chat, text)
+    conn.executor.submit(conn.chat, text,imgurl=imgurl)
     # await send_stt_message(conn, text)
     # if conn.intent_type == "function_call" and imgurl is None:
     #     conn.executor.submit(conn.chat_with_function_calling, text)

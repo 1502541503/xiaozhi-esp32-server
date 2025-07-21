@@ -92,8 +92,23 @@ class LLMProvider(LLMProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"Error in response generation: {e}")
 
-    def response_with_functions(self, session_id, dialogue, functions=None):
+    def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         try:
+
+            logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},modelname:{self.model_name}")
+            if imgUrl:
+                self.model_name = "qwen-vl-plus"
+                for i in range(len(dialogue) - 1, -1, -1):
+                    if dialogue[i].get("role") == "user":
+                        original_text = dialogue[i].get("content", "")
+                        dialogue[i]["content"] = [
+                            {"type": "text", "text": original_text},
+                            {"type": "image_url", "image_url": {"url": imgUrl}}
+                        ]
+                        break  # 只处理最后一条 user 消息
+
+            logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
+
             stream = self.client.chat.completions.create(
                 model=self.model_name, messages=dialogue, stream=True, tools=functions
             )
