@@ -182,6 +182,7 @@ class ConnectionHandler:
             #     await self.close(ws)
             #     return
             # try:
+            #     self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get("bleinfo")}")
             #     mac_authorize = get_mac_api(
             #         self.headers.get("authorization"),
             #         self.headers.get("device-id"),

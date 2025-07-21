@@ -41,9 +41,9 @@ async def resume_vad_detection(conn):
 
 
 async def startToChat(conn, text):
-    if conn.need_bind:
-        await check_bind_device(conn)
-        return
+    # 取消设备验证if conn.need_bind:
+    #     await check_bind_device(conn)
+    #     return
 
     # 如果当日的输出字数大于限定的字数
     if conn.max_output_size > 0:
@@ -70,9 +70,9 @@ async def startToChat(conn, text):
 #增加一个图像识别
 async def startToChat(conn, text, imgurl=None):
     print("图像识别 startToChat：", imgurl)
-    if conn.need_bind:
-        await check_bind_device(conn)
-        return
+    # if conn.need_bind:
+    #     await check_bind_device(conn)
+    #     return
 
     # 字数限制检查
     if conn.max_output_size > 0:

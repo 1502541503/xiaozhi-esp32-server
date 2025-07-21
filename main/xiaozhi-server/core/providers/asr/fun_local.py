@@ -10,6 +10,7 @@ from funasr import AutoModel
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 import shutil
 from core.providers.asr.dto.dto import InterfaceType
+import pyogg
 
 TAG = __name__
 logger = setup_logging()
@@ -68,6 +69,16 @@ class ASRProvider(ASRProviderBase):
         file_path = None
         retry_count = 0
 
+        try:
+            opus_save_path = os.path.join(self.output_dir, f"{session_id}.opus")
+            with open(opus_save_path, "wb") as f:
+                for chunk in opus_data:
+                    f.write(chunk)
+            logger.bind(tag=TAG).info(f"[调试] 已保存原始 Opus 文件: {opus_save_path}")
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"[调试] 保存 Opus 文件失败: {e}", exc_info=True)
+
+
         while retry_count < MAX_RETRIES:
             try:
                 # 合并所有opus数据包
@@ -83,6 +94,8 @@ class ASRProvider(ASRProviderBase):
                     free_space = shutil.disk_usage(self.output_dir).free
                     if free_space < len(combined_pcm_data) * 2:  # 预留2倍空间
                         raise OSError("磁盘空间不足")
+
+                #file_path = self.save_audio_to_file(pcm_data, session_id)
 
                 # 判断是否保存为WAV文件
                 if self.delete_audio_file:
@@ -132,3 +145,9 @@ class ASRProvider(ASRProviderBase):
                         logger.bind(tag=TAG).error(
                             f"文件删除失败: {file_path} | 错误: {e}"
                         )
+
+def write_oggopus(opus_frames: List[bytes], filename: str):
+    ogg = pyogg.OpusWriter(filename)
+    for frame in opus_frames:
+        ogg.write(frame)
+    ogg.close()

@@ -58,6 +58,19 @@ class ASRProviderBase(ABC):
     # 这里默认是非流式的处理方式
     # 流式处理方式请在子类中重写
     async def receive_audio(self, conn, audio, audio_have_voice):
+        # 不做任何静音判断，全部保留音频
+        # conn.asr_audio.append(audio)
+        #
+        # if conn.client_voice_stop:
+        #     conn.reset_vad_states()
+        #
+        #     # 整段音频直接交给识别处理
+        #     asr_audio_task = copy.deepcopy(conn.asr_audio)
+        #     conn.asr_audio.clear()
+        #
+        #     if len(asr_audio_task) > 15:
+        #         await self.handle_voice_stop(conn, asr_audio_task)
+
         if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
             have_voice = audio_have_voice
         else:
@@ -65,7 +78,7 @@ class ASRProviderBase(ABC):
         # 如果本次没有声音，本段也没声音，就把声音丢弃了
         conn.asr_audio.append(audio)
         if have_voice == False and conn.client_have_voice == False:
-            conn.asr_audio = conn.asr_audio[-10:]
+            conn.asr_audio = conn.asr_audio[-100:]
             return
 
         # 如果本段有声音，且已经停止了
@@ -89,6 +102,11 @@ class ASRProviderBase(ABC):
 
         conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
         text_len, _ = remove_punctuation_and_length(raw_text)
+
+        if text_len < 2:
+            conn.logger.bind(tag=TAG).warning(f"识别结果过短（{text_len} 个字），跳过对话触发")
+            return
+
         self.stop_ws_connection()
         if text_len > 0:
             # 使用自定义模块进行上报
@@ -122,17 +140,22 @@ class ASRProviderBase(ABC):
     @staticmethod
     def decode_opus(opus_data: List[bytes]) -> bytes:
         """将Opus音频数据解码为PCM数据"""
+        logger.bind(tag=TAG).warning(f"将Opus音频数据解码为PCM数据")
         try:
             decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, 单声道
             pcm_data = []
             buffer_size = 960  # 每次处理960个采样点
 
-            for opus_packet in opus_data:
+            for i, opus_packet in enumerate(opus_data):
                 try:
                     # 使用较小的缓冲区大小进行处理
                     pcm_frame = decoder.decode(opus_packet, buffer_size)
+                    # logger.bind(tag=TAG).info(
+                    #     f"解码包 {i}: opus大小={len(opus_packet)} bytes -> pcm大小={len(pcm_frame)} bytes")
                     if pcm_frame:
                         pcm_data.append(pcm_frame)
+                    else:
+                        logger.bind(tag=TAG).warning(f"解码包 {i} 解码为空")
                 except opuslib_next.OpusError as e:
                     logger.bind(tag=TAG).warning(f"Opus解码错误，跳过当前数据包: {e}")
                     continue
