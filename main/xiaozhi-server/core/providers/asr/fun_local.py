@@ -10,7 +10,7 @@ from funasr import AutoModel
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 import shutil
 from core.providers.asr.dto.dto import InterfaceType
-import pyogg
+#import pyogg
 
 TAG = __name__
 logger = setup_logging()
@@ -146,8 +146,8 @@ class ASRProvider(ASRProviderBase):
                             f"文件删除失败: {file_path} | 错误: {e}"
                         )
 
-def write_oggopus(opus_frames: List[bytes], filename: str):
-    ogg = pyogg.OpusWriter(filename)
-    for frame in opus_frames:
-        ogg.write(frame)
-    ogg.close()
+# def write_oggopus(opus_frames: List[bytes], filename: str):
+#     ogg = pyogg.OpusWriter(filename)
+#     for frame in opus_frames:
+#         ogg.write(frame)
+#     ogg.close()

@@ -155,9 +155,12 @@ def parse_weather_info(soup):
 @register_function("get_weather", GET_WEATHER_FUNCTION_DESC, ToolType.SYSTEM_CTL)
 def get_weather(conn, location: str = None, lang: str = "zh_CN"):
     print(f"进入天气插件: {conn}")
-    api_host = conn.config["plugins"]["get_weather"].get("api_host", "mj7p3y7naa.re.qweatherapi.com")
-    api_key = conn.config["plugins"]["get_weather"].get("api_key", "a861d0d5e7bf4ee1a83d9a9e4f96d4da")
-    default_location = conn.config["plugins"]["get_weather"]["default_location"]
+    #api_host = conn.config["plugins"]["get_weather"].get("api_host", "pq5vxm8qxh.re.qweatherapi.com")
+    api_host = "pq5vxm8qxh.re.qweatherapi.com"
+    #api_key = conn.config["plugins"]["get_weather"].get("api_key", "3ad97c63375a4911ab3c655a375c126b")
+    api_key = "3ad97c63375a4911ab3c655a375c126b"
+    #default_location = conn.config["plugins"]["get_weather"]["default_location"]
+    default_location = "default_location"
     client_ip = conn.client_ip
     # 优先使用用户提供的location参数
     if not location:

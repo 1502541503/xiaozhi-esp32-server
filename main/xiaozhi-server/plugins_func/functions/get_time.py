@@ -68,7 +68,6 @@ def get_lunar(query=None):
     """
     用于获取当前的阴历/农历，和天干地支、节气、生肖、星座、八字、宜忌等黄历信息
     """
-    print(f"进入时间插件: {get_lunar_function_desc}")
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
     current_date = now.strftime("%Y-%m-%d")
