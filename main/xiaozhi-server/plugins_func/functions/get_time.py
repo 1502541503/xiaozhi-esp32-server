@@ -25,6 +25,7 @@ get_time_function_desc = {
 
 @register_function("get_time", get_time_function_desc, ToolType.WAIT)
 def get_time():
+    print(f"进入时间插件: {get_lunar_function_desc}")
     """
     获取当前的日期时间信息
     """
@@ -67,6 +68,7 @@ def get_lunar(query=None):
     """
     用于获取当前的阴历/农历，和天干地支、节气、生肖、星座、八字、宜忌等黄历信息
     """
+    print(f"进入时间插件: {get_lunar_function_desc}")
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
     current_date = now.strftime("%Y-%m-%d")

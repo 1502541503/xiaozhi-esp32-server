@@ -3,6 +3,7 @@ from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
 from core.handle.abortHandle import handleAbortMessage
 import time
+import json
 import asyncio
 from core.handle.sendAudioHandle import SentenceType
 from core.utils.util import audio_to_data
@@ -70,9 +71,36 @@ async def startToChat(conn, text):
 #增加一个图像识别
 async def startToChat(conn, text, imgurl=None):
     print("图像识别 startToChat：", imgurl)
+    speaker_name = None
+    actual_text = text
     # if conn.need_bind:
     #     await check_bind_device(conn)
     #     return
+
+    try:
+        # 尝试解析JSON格式的输入
+        if text.strip().startswith('{') and text.strip().endswith('}'):
+            data = json.loads(text)
+            if 'speaker' in data and 'content' in data:
+                speaker_name = data['speaker']
+                actual_text = data['content']
+                conn.logger.bind(tag=TAG).info(f"解析到说话人信息: {speaker_name}")
+
+                # 直接使用JSON格式的文本，不解析
+                actual_text = text
+    except (json.JSONDecodeError, KeyError):
+        # 如果解析失败，继续使用原始文本
+        pass
+
+    # 保存说话人信息到连接对象
+    if speaker_name:
+        conn.current_speaker = speaker_name
+    else:
+        conn.current_speaker = None
+
+    if conn.need_bind:
+        await check_bind_device(conn)
+        return
 
     # 字数限制检查
     if conn.max_output_size > 0:
@@ -91,10 +119,12 @@ async def startToChat(conn, text, imgurl=None):
 
     # 正常聊天流程
     await send_stt_message(conn, text)
-    if conn.intent_type == "function_call" and imgurl is None:
-        conn.executor.submit(conn.chat_with_function_calling, text)
-    else:
-        conn.executor.submit(conn.chat, text,[],imgurl)
+    conn.executor.submit(conn.chat, text)
+    # await send_stt_message(conn, text)
+    # if conn.intent_type == "function_call" and imgurl is None:
+    #     conn.executor.submit(conn.chat_with_function_calling, text)
+    # else:
+    #     conn.executor.submit(conn.chat, text,[],imgurl)
 
 
 async def no_voice_close_connect(conn, have_voice):

@@ -719,6 +719,7 @@ class ConnectionHandler:
             if functions is not None and getattr(self.llm, "provider", "") != "AliBL":
                 # 使用支持functions的streaming接口
                 print(f"进入====：2")
+                print(f"进入====：{self.llm}")
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
                     self.dialogue.get_llm_dialogue_with_memory(memory_str),
