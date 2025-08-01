@@ -1,3 +1,4 @@
+import asyncio
 import json
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.helloHandle import handleHelloMessage
@@ -7,7 +8,6 @@ from core.handle.receiveAudioHandle import startToChat, handleAudioMessage
 from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.iotHandle import handleIotDescriptors, handleIotStatus
 from core.handle.reportHandle import enqueue_asr_report
-import asyncio
 
 TAG = __name__
 
@@ -25,15 +25,24 @@ async def handleTextMessage(conn, message):
             await handleHelloMessage(conn, msg_json)
         elif msg_json["type"] == "abort":
             conn.logger.bind(tag=TAG).info(f"收到abort消息：{message}")
+            await conn.websocket.send(json.dumps(
+                        {
+                            "type": "server",
+                            "msg": "收到abort消息打断对话",
+                            "session_id": conn.session_id,
+                        }
+                    ))
+            if len(conn.asr_audio) > 15:
+                conn.asr_audio.clear()
+                conn.logger.bind(tag=TAG).info(
+                    f"Abort时检测到残留音频，立即触发清理"
+                )
             # 需要测试能否马上停止
-            conn.client_have_voice = True
-            conn.client_voice_stop = True
+            #await handleAbortMessage(conn)
+            # conn.audio_timeout_triggered = False
+            # conn.client_have_voice = True
+            # conn.client_voice_stop = True
             conn.client_abort = True
-
-            # conn.stop_event.is_set()
-            #
-            # conn.stop_event.set()
-            await handleAbortMessage(conn)
         elif msg_json["type"] == "listen":
             conn.logger.bind(tag=TAG).info(f"收到listen消息：{message}")
             if "mode" in msg_json:

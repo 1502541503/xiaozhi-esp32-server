@@ -16,12 +16,15 @@ from core.handle.receiveAudioHandle import startToChat
 from core.handle.reportHandle import enqueue_asr_report
 from core.utils.util import remove_punctuation_and_length
 from core.handle.receiveAudioHandle import handleAudioMessage
+from concurrent.futures import ThreadPoolExecutor
 
 TAG = __name__
 logger = setup_logging()
 
 
 class ASRProviderBase(ABC):
+    TAG = "ASRProviderBase"
+
     def __init__(self):
         pass
 
@@ -58,19 +61,8 @@ class ASRProviderBase(ABC):
     # 这里默认是非流式的处理方式
     # 流式处理方式请在子类中重写
     async def receive_audio(self, conn, audio, audio_have_voice):
-        # 不做任何静音判断，全部保留音频
-        # conn.asr_audio.append(audio)
-        #
-        # if conn.client_voice_stop:
-        #     conn.reset_vad_states()
-        #
-        #     # 整段音频直接交给识别处理
-        #     asr_audio_task = copy.deepcopy(conn.asr_audio)
-        #     conn.asr_audio.clear()
-        #
-        #     if len(asr_audio_task) > 15:
-        #         await self.handle_voice_stop(conn, asr_audio_task)
-
+        if not hasattr(conn, "audio_timeout_triggered"):
+            conn.audio_timeout_triggered = False
         if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
             have_voice = audio_have_voice
         else:
@@ -89,13 +81,22 @@ class ASRProviderBase(ABC):
             # 音频太短了，无法识别
             conn.reset_vad_states()
             if len(asr_audio_task) > 15:
+                conn.audio_timeout_triggered = True
+                if hasattr(conn, "audio_timeout_task"):
+                    conn.audio_timeout_task.cancel()
                 await self.handle_voice_stop(conn, asr_audio_task)
+            return
+
+        if not conn.audio_timeout_triggered:
+            if hasattr(conn, "audio_timeout_task"):
+                conn.audio_timeout_task.cancel()
+            conn.audio_timeout_task = asyncio.create_task(self._audio_timeout_checker(conn))
 
     # 处理语音停止
     async def handle_voice_stop(self, conn, asr_audio_task):
-        start_time = time.time()
-        first_log = True
-
+        if len(asr_audio_task) < 10:
+            conn.logger.bind(tag=TAG).warning("识别结果太短，跳过对话处理")
+            return
         raw_text, _ = await self.speech_to_text(
             asr_audio_task, conn.session_id, conn.audio_format
         )  # 确保ASR模块返回原始文本
@@ -112,6 +113,21 @@ class ASRProviderBase(ABC):
             # 使用自定义模块进行上报
             await startToChat(conn, raw_text)
             enqueue_asr_report(conn, raw_text, asr_audio_task)
+
+
+    async def _audio_timeout_checker(self, conn):
+        try:
+            await asyncio.sleep(1)  # 设置超时时间（秒）
+            if getattr(conn, "audio_timeout_triggered", False):
+                return  # 已触发识别，跳过
+            if len(conn.asr_audio) > 15:
+                conn.logger.bind(tag=TAG).info("超时未收到音频，自动触发识别")
+                conn.audio_timeout_triggered = True
+                await self.handle_voice_stop(conn, copy.deepcopy(conn.asr_audio))
+                conn.asr_audio.clear()
+        except asyncio.CancelledError:
+            # 收到新音频帧后取消
+            pass
 
     def stop_ws_connection(self):
         pass
@@ -138,32 +154,24 @@ class ASRProviderBase(ABC):
         pass
 
     @staticmethod
+    def decode_frame(decoder_args):
+        decoder, opus_packet, index = decoder_args
+        try:
+            pcm_frame = decoder.decode(opus_packet, 960)
+            return pcm_frame
+        except Exception as e:
+            logger.bind(tag=ASRProviderBase.TAG).warning(f"解码包 {index} 异常: {e}")
+            return b""
+
+    @staticmethod
     def decode_opus(opus_data: List[bytes]) -> bytes:
         """将Opus音频数据解码为PCM数据"""
-        logger.bind(tag=TAG).warning(f"将Opus音频数据解码为PCM数据")
+        logger.bind(tag=ASRProviderBase.TAG).warning("将Opus音频数据解码为PCM数据")
         try:
-            decoder = opuslib_next.Decoder(16000, 1)  # 16kHz, 单声道
-            pcm_data = []
-            buffer_size = 960  # 每次处理960个采样点
-
-            for i, opus_packet in enumerate(opus_data):
-                try:
-                    # 使用较小的缓冲区大小进行处理
-                    pcm_frame = decoder.decode(opus_packet, buffer_size)
-                    # logger.bind(tag=TAG).info(
-                    #     f"解码包 {i}: opus大小={len(opus_packet)} bytes -> pcm大小={len(pcm_frame)} bytes")
-                    if pcm_frame:
-                        pcm_data.append(pcm_frame)
-                    else:
-                        logger.bind(tag=TAG).warning(f"解码包 {i} 解码为空")
-                except opuslib_next.OpusError as e:
-                    logger.bind(tag=TAG).warning(f"Opus解码错误，跳过当前数据包: {e}")
-                    continue
-                except Exception as e:
-                    logger.bind(tag=TAG).error(f"音频处理错误: {e}", exc_info=True)
-                    continue
-
-            return pcm_data
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                decoder_list = [opuslib_next.Decoder(16000, 1) for _ in range(len(opus_data))]
+                results = executor.map(ASRProviderBase.decode_frame, zip(decoder_list, opus_data, range(len(opus_data))))
+                return list(results)
         except Exception as e:
-            logger.bind(tag=TAG).error(f"音频解码过程发生错误: {e}", exc_info=True)
+            logger.bind(tag=ASRProviderBase.TAG).error(f"音频解码过程发生错误: {e}", exc_info=True)
             return []

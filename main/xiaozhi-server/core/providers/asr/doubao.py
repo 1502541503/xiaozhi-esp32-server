@@ -170,9 +170,10 @@ class ASRProvider(ASRProviderBase):
                     and result["payload_msg"]["code"] != self.success_code
                     and result["payload_msg"]["code"] != 1013  # 忽略无有效语音的错误
                 ):
-                    logger.bind(tag=TAG).error(f"ASR error: {result}")
                     return None
 
+
+                logger.bind(tag=TAG).info(f"语音识别返回的result：{result}")
                 for seq, (chunk, last) in enumerate(
                     self.slice_data(audio_data, segment_size), 1
                 ):
@@ -206,9 +207,15 @@ class ASRProvider(ASRProviderBase):
                     return None
                 elif "payload_msg" in result and result["payload_msg"]["code"] == 1013:
                     # 无有效语音，返回空字符串
+                    await websocket.send(json.dumps(
+                        {
+                            "type": "server",
+                            "msg": "无有效语音，返回空字符串"
+                        }
+                    ))
+                    logger.bind(tag=TAG).info(f"无有效语音，返回空字符串")
                     return ""
                 else:
-                    logger.bind(tag=TAG).error(f"ASR error: {result}")
                     return None
 
         except Exception as e:
@@ -260,7 +267,7 @@ class ASRProvider(ASRProviderBase):
             start_time = time.time()
             text = await self._send_request(combined_pcm_data, segment_size)
             if text:
-                logger.bind(tag=TAG).debug(
+                logger.bind(tag=TAG).info(
                     f"语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text}"
                 )
                 return text, file_path

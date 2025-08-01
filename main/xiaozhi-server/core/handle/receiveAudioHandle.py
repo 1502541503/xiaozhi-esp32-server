@@ -34,7 +34,6 @@ async def handleAudioMessage(conn, audio):
     conn.asr_logged = False
     await conn.asr.receive_audio(conn, audio, have_voice)
 
-
 async def resume_vad_detection(conn):
     # 等待2秒后恢复VAD检测
     await asyncio.sleep(1)
@@ -45,7 +44,7 @@ async def startToChat(conn, text):
     # 取消设备验证if conn.need_bind:
     #     await check_bind_device(conn)
     #     return
-
+    conn.audio_timeout_triggered = False
     # 如果当日的输出字数大于限定的字数
     if conn.max_output_size > 0:
         if check_device_output_limit(
@@ -71,6 +70,7 @@ async def startToChat(conn, text):
 #增加一个图像识别
 async def startToChat(conn, text, imgurl=None):
     print("图像识别 startToChat：", imgurl)
+    conn.audio_timeout_triggered = False
     speaker_name = None
     actual_text = text
     # if conn.need_bind:
@@ -98,9 +98,9 @@ async def startToChat(conn, text, imgurl=None):
     else:
         conn.current_speaker = None
 
-    if conn.need_bind:
-        await check_bind_device(conn)
-        return
+    # if conn.need_bind:
+    #     await check_bind_device(conn)
+    #     return
 
     # 字数限制检查
     if conn.max_output_size > 0:

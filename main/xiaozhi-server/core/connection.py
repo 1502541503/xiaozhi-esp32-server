@@ -243,6 +243,8 @@ class ConnectionHandler:
             self.websocket = ws
             self.device_id = self.headers.get("device-id", None)
 
+            self.logger.bind(tag=TAG).info(f"开始===={self.device_id}")
+
             # 启动超时检查任务
             self.timeout_task = asyncio.create_task(self._check_timeout())
 
@@ -452,6 +454,9 @@ class ConnectionHandler:
                 self.config,
                 self.headers.get("device-id"),
                 self.headers.get("client-id", self.headers.get("device-id")),
+            )
+            self.logger.bind(tag=TAG).info(
+                f"初始化配置===device-id：{self.headers.get('device-id')}"
             )
             private_config["delete_audio"] = bool(self.config.get("delete_audio", True))
             self.logger.bind(tag=TAG).info(
@@ -731,7 +736,7 @@ class ConnectionHandler:
                         self.session_id, messages,imgurl
                     )
                 else:
-                    print(f"进入====：1")
+                    print(f"进入====：1,llm:{self.llm}")
                     llm_responses = self.llm.response(
                         self.session_id,
                         self.dialogue.get_llm_dialogue_with_memory(memory_str),

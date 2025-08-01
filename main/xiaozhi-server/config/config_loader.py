@@ -46,6 +46,7 @@ def load_config():
 
 def get_config_from_api(config):
     """从Java API获取配置"""
+    #print(f"=======调用get_config_from_api接口获取参数==========={config}")
     # 初始化API客户端
     init_service(config)
 
@@ -73,6 +74,7 @@ def get_config_from_api(config):
 
 def get_private_config_from_api(config, device_id, client_id):
     """从Java API获取私有配置"""
+    #print(f"=======调用get_private_config_from_api==========={config}===={device_id}===={client_id}==={config['selected_module']}")
     return get_agent_models(device_id, client_id, config["selected_module"])
 
 
