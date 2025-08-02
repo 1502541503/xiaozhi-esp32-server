@@ -109,9 +109,8 @@ class LLMProvider(LLMProviderBase):
                         imgUrl = imgUrl.replace(old_domain, new_domain, 1)
                         break  # 找到就替换，无需再判断后面的
 
-            messages = []
-
             logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},modelname:{model_name}")
+            logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
             if imgUrl:
                 model_name = "qwen-vl-plus"
 

@@ -16,19 +16,21 @@ async def handleAudioMessage(conn, audio):
     have_voice = conn.vad.is_vad(conn, audio)
     # 如果设备刚刚被唤醒，短暂忽略VAD检测
     if have_voice and hasattr(conn, "just_woken_up") and conn.just_woken_up:
+        conn.logger.bind(tag=TAG).info(f"短暂忽略VAD检测")
         have_voice = False
         # 设置一个短暂延迟后恢复VAD检测
         conn.asr_audio.clear()
         if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
+            conn.logger.bind(tag=TAG).info(f"进入if not hasattr")
             conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
         return
 
     if have_voice:
         if conn.client_is_speaking:
             conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
-            await handleAbortMessage(conn)
+            #await handleAbortMessage(conn)
     # 设备长时间空闲检测，用于say goodbye
-    await no_voice_close_connect(conn, have_voice)
+    #await no_voice_close_connect(conn, have_voice)
     # 接收音频
     conn.asr_start_time = time.time()
     conn.asr_logged = False

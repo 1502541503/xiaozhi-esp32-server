@@ -62,8 +62,9 @@ class Dialogue:
     def get_llm_dialogue_with_memory(
         self, memory_str: str = None
     ) -> List[Dict[str, str]]:
-        if memory_str is None or len(memory_str) == 0:
-            return self.get_llm_dialogue()
+        # if memory_str is None or len(memory_str) == 0:
+        #     #print(f"直接返回，不记忆")
+        #     return self.get_llm_dialogue()
 
         # 构建带记忆的对话
         dialogue = []
@@ -80,9 +81,27 @@ class Dialogue:
             )
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
 
+        # 获取非系统消息
+        non_system_msgs = [m for m in self.dialogue if m.role != "system"]
+        # 截取最近 N 轮（1轮 = 用户 + AI），从后往前找
+        selected = []
+        round_count = 0
+        current_round = []
+
         # 添加用户和助手的对话
-        for m in self.dialogue:
-            if m.role != "system":  # 跳过原始的系统消息
-                self.getMessages(m, dialogue)
+        for m in reversed(non_system_msgs):
+            current_round.insert(0, m)
+            if m.role == "user":
+                round_count += 1
+                if round_count >= 2:
+                    selected = current_round + selected
+                    break
+                else:
+                    selected = current_round + selected
+                    current_round = []
+
+            # 添加选中的对话
+        for m in selected:
+            self.getMessages(m, dialogue)
 
         return dialogue

@@ -16,7 +16,7 @@ get_instruction_function_desc = {
             "比如用户说”我要听音乐“”播放音乐“”开始播放音乐“等，你就要返回”播放音乐“。"
             "比如用户说”接听电话“”帮我接听电话“等，你就要返回”接听电话“。"
             "比如用户说”音量调整到20“，有具体的调整数值，你就要返回”音量调整:20“，即是“音量调整:数值”。"
-            "如果只返回关键字，不能有任何多余的解释。"
+            "你只能回答上述的语音命令关键词，不添加任何多余的解释。"
         ),
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
@@ -27,4 +27,4 @@ get_instruction_function_desc = {
 def get_instruction():
     print(f"进入语音命令插件")
 
-    return ActionResponse(Action.REQLLM, "根据用户的回答是否是上述语音关键字，是则只返回关键字，否则正常回答", None)
+    return ActionResponse(Action.REQLLM, "根据用户的回答是否是上述的语音关键字，是则只返回关键字，不允许出现多余的话语。", None)

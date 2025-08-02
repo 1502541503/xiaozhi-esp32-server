@@ -40,6 +40,7 @@ class ASRProviderBase(ABC):
 
     # 有序处理ASR音频
     def asr_text_priority_thread(self, conn):
+
         while not conn.stop_event.is_set():
             try:
                 message = conn.asr_audio_queue.get(timeout=1)
@@ -52,6 +53,14 @@ class ASRProviderBase(ABC):
             except queue.Empty:
                 continue
             except Exception as e:
+                conn.websocket.send(json.dumps(
+                    {
+                        "type": "server",
+                        "code": 4001,
+                        "msg": f"处理ASR文本失败: {str(e)}",
+                        "session_id": conn.session_id,
+                    }
+                ))
                 logger.bind(tag=TAG).error(
                     f"处理ASR文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
                 )
@@ -61,7 +70,17 @@ class ASRProviderBase(ABC):
     # 这里默认是非流式的处理方式
     # 流式处理方式请在子类中重写
     async def receive_audio(self, conn, audio, audio_have_voice):
+        #print(f"开始接收音频===={audio_have_voice}")
+        await conn.websocket.send(json.dumps(
+            {
+                "type": "server",
+                "code": 0,
+                "msg": "接收到了音频流",
+                "session_id": conn.session_id,
+            }
+        ))
         if not hasattr(conn, "audio_timeout_triggered"):
+            print(f"audio_timeout_triggered = False")
             conn.audio_timeout_triggered = False
         if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
             have_voice = audio_have_voice
@@ -71,10 +90,16 @@ class ASRProviderBase(ABC):
         conn.asr_audio.append(audio)
         if have_voice == False and conn.client_have_voice == False:
             conn.asr_audio = conn.asr_audio[-100:]
+            #print(f"本次接受的音频没有声音，本段也没声音，把声音丢弃.have_voice={have_voice}.client_have_voice={conn.client_have_voice}")
+            if not conn.audio_timeout_triggered:
+                if hasattr(conn, "audio_timeout_task"):
+                    conn.audio_timeout_task.cancel()
+                conn.audio_timeout_task = asyncio.create_task(self._audio_no_checker(conn))
             return
-
         # 如果本段有声音，且已经停止了
         if conn.client_voice_stop:
+
+            print(f"本段有声音，且已经停止了")
             asr_audio_task = copy.deepcopy(conn.asr_audio)
             conn.asr_audio.clear()
 
@@ -85,6 +110,8 @@ class ASRProviderBase(ABC):
                 if hasattr(conn, "audio_timeout_task"):
                     conn.audio_timeout_task.cancel()
                 await self.handle_voice_stop(conn, asr_audio_task)
+            else:
+                conn.logger.bind(tag=TAG).info("[receive_audio] 音频帧太短，忽略本段")
             return
 
         if not conn.audio_timeout_triggered:
@@ -114,7 +141,6 @@ class ASRProviderBase(ABC):
             await startToChat(conn, raw_text)
             enqueue_asr_report(conn, raw_text, asr_audio_task)
 
-
     async def _audio_timeout_checker(self, conn):
         try:
             await asyncio.sleep(1)  # 设置超时时间（秒）
@@ -125,6 +151,26 @@ class ASRProviderBase(ABC):
                 conn.audio_timeout_triggered = True
                 await self.handle_voice_stop(conn, copy.deepcopy(conn.asr_audio))
                 conn.asr_audio.clear()
+        except asyncio.CancelledError:
+            # 收到新音频帧后取消
+            pass
+
+    async def _audio_no_checker(self, conn):
+        try:
+            await asyncio.sleep(3)  # 设置超时时间（秒）
+            conn.logger.bind(tag=TAG).info(f"整段都没声音，且后续客户端无音频推送:{len(conn.asr_audio)}")
+            if len(conn.asr_audio)==100:
+                await conn.websocket.send(json.dumps(
+                    {
+                        "type": "server",
+                        "code": 4002,
+                        "msg": "整段音频无声音，并后续无音频推送",
+                        "session_id": conn.session_id,
+                    }
+                ))
+                conn.asr_audio.clear()
+
+            conn.audio_timeout_triggered = False
         except asyncio.CancelledError:
             # 收到新音频帧后取消
             pass

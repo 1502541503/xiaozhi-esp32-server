@@ -259,9 +259,20 @@ class ConnectionHandler:
 
             try:
                 async for message in self.websocket:
+                    print(f"[WebSocket] 收到消息: type={type(message)}, len={len(message) if isinstance(message, bytes) else '-'}")
                     await self._route_message(message)
-            except websockets.exceptions.ConnectionClosed:
+            except websockets.exceptions.ConnectionClosed as e:
                 self.logger.bind(tag=TAG).info("客户端断开连接")
+
+                recv_code = getattr(e.rcvd, "code", None)
+                recv_reason = getattr(e.rcvd, "reason", "")
+                send_code = getattr(e.sent, "code", None)
+                send_reason = getattr(e.sent, "reason", "")
+
+                self.logger.bind(tag=TAG).warning(
+                    f"WebSocket连接关闭 - recv_code={recv_code}, recv_reason={recv_reason}, "
+                    f"send_code={send_code}, send_reason={send_reason}"
+                )
 
         except AuthenticationError as e:
             self.logger.bind(tag=TAG).error(f"Authentication failed: {str(e)}")
@@ -678,8 +689,7 @@ class ConnectionHandler:
                 self.loop,
             )
             self.asr_start_time = None
-        self.logger.bind(tag=TAG).info(f"开始对话了")
-        self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
+        self.logger.bind(tag=TAG).info(f"开始对话了,大模型收到用户消息: {query}")
         self.llm_finish_task = False
 
         if not tool_call:
@@ -700,11 +710,12 @@ class ConnectionHandler:
         try:
             # 使用带记忆的对话
             memory_str = None
-            if self.memory is not None:
-                future = asyncio.run_coroutine_threadsafe(
-                    self.memory.query_memory(query), self.loop
-                )
-                memory_str = future.result()
+            # if self.memory is not None:
+            #     self.logger.bind(tag=TAG).info(f"是否使用记忆: {self.memory}")
+            #     future = asyncio.run_coroutine_threadsafe(
+            #         self.memory.query_memory(query), self.loop
+            #     )
+            #     memory_str = future.result()
 
             #uuid_str = str(uuid.uuid4()).replace("-", "")
             self.sentence_id = str(uuid.uuid4().hex)
@@ -719,17 +730,20 @@ class ConnectionHandler:
                     ]
                 }]
             else:
-                messages = self.dialogue.get_llm_dialogue_with_memory(memory_str)
+                system_prompt = self.prompt
+                messages =  [{"role": "system", "content": system_prompt},{"role": "user", "content": query}]
             start_time = time.time()
             if functions is not None and getattr(self.llm, "provider", "") != "AliBL":
                 # 使用支持functions的streaming接口
-                print(f"进入====：2.{imgurl}")
+                print(f"进入====：2.{imgurl}，本次提问的是:{query}")
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
                     self.dialogue.get_llm_dialogue_with_memory(memory_str),
                     functions=functions,
                     imgUrl=imgurl,
                 )
+                print(f"问答结束=={llm_responses}")
+
             else:
                 if getattr(self.llm, "provider", "") == "AliBL":
                     llm_responses = self.llm.response(
@@ -739,7 +753,7 @@ class ConnectionHandler:
                     print(f"进入====：1,llm:{self.llm}")
                     llm_responses = self.llm.response(
                         self.session_id,
-                        self.dialogue.get_llm_dialogue_with_memory(memory_str),
+                        messages,
                     )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
@@ -785,7 +799,7 @@ class ConnectionHandler:
                     if text_index == 0:
 
                         elapsed = time.time() - start_time
-                        self.logger.bind(tag=TAG).info(f"问答耗时：{elapsed:.3f} 秒")
+                        self.logger.bind(tag=TAG).info(f"问答耗时：{elapsed:.3f} 秒.回答={content}")
                         asyncio.run_coroutine_threadsafe(
                             self.websocket.send(
                                 json.dumps(
@@ -1055,6 +1069,7 @@ class ConnectionHandler:
                 await ws.close()
             elif self.websocket:
                 await self.websocket.close()
+
 
             # 最后关闭线程池（避免阻塞）
             if self.executor:
