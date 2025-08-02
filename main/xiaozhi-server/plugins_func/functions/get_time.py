@@ -25,6 +25,7 @@ get_time_function_desc = {
 
 @register_function("get_time", get_time_function_desc, ToolType.WAIT)
 def get_time():
+    print(f"进入时间插件: {get_lunar_function_desc}")
     """
     获取当前的日期时间信息
     """

@@ -108,17 +108,20 @@ WEATHER_CODE_MAP = {
 
 
 def fetch_city_info(location, api_key, api_host):
+    print(f"进入天气插件: {api_key}")
     url = f"https://{api_host}/geo/v2/city/lookup?key={api_key}&location={location}&lang=zh"
     response = requests.get(url, headers=HEADERS).json()
     return response.get("location", [])[0] if response.get("location") else None
 
 
 def fetch_weather_page(url):
+    print(f"进入天气插件: {url}")
     response = requests.get(url, headers=HEADERS)
     return BeautifulSoup(response.text, "html.parser") if response.ok else None
 
 
 def parse_weather_info(soup):
+    print(f"进入天气插件: {soup}")
     city_name = soup.select_one("h1.c-submenu__location").get_text(strip=True)
 
     current_abstract = soup.select_one(".c-city-weather-current .current-abstract")
@@ -151,9 +154,13 @@ def parse_weather_info(soup):
 
 @register_function("get_weather", GET_WEATHER_FUNCTION_DESC, ToolType.SYSTEM_CTL)
 def get_weather(conn, location: str = None, lang: str = "zh_CN"):
-    api_host = conn.config["plugins"]["get_weather"].get("api_host", "mj7p3y7naa.re.qweatherapi.com")
-    api_key = conn.config["plugins"]["get_weather"].get("api_key", "a861d0d5e7bf4ee1a83d9a9e4f96d4da")
-    default_location = conn.config["plugins"]["get_weather"]["default_location"]
+    print(f"进入天气插件: {conn}")
+    #api_host = conn.config["plugins"]["get_weather"].get("api_host", "pq5vxm8qxh.re.qweatherapi.com")
+    api_host = "pq5vxm8qxh.re.qweatherapi.com"
+    #api_key = conn.config["plugins"]["get_weather"].get("api_key", "3ad97c63375a4911ab3c655a375c126b")
+    api_key = "3ad97c63375a4911ab3c655a375c126b"
+    #default_location = conn.config["plugins"]["get_weather"]["default_location"]
+    default_location = "default_location"
     client_ip = conn.client_ip
     # 优先使用用户提供的location参数
     if not location:

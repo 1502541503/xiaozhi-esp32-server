@@ -94,7 +94,7 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).error(f"Error in Ollama response generation: {e}")
             yield "【Ollama服务响应异常】"
 
-    def response_with_functions(self, session_id, dialogue, functions=None):
+    def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         try:
             # 如果是qwen3模型，在用户最后一条消息中添加/no_think指令
             if self.is_qwen3:

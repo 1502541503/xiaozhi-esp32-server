@@ -196,7 +196,7 @@ class TTSProvider(TTSProviderBase):
                     f"收到TTS任务｜{message.sentence_type.name} ｜ {message.content_type.name} | 会话ID: {self.conn.sentence_id}"
                 )
                 if self.conn.client_abort:
-                    logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
+                    #logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
                     continue
 
                 if message.sentence_type == SentenceType.FIRST:

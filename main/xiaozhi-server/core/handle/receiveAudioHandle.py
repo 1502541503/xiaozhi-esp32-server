@@ -3,6 +3,7 @@ from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
 from core.handle.abortHandle import handleAbortMessage
 import time
+import json
 import asyncio
 from core.handle.sendAudioHandle import SentenceType
 from core.utils.util import audio_to_data
@@ -15,24 +16,25 @@ async def handleAudioMessage(conn, audio):
     have_voice = conn.vad.is_vad(conn, audio)
     # 如果设备刚刚被唤醒，短暂忽略VAD检测
     if have_voice and hasattr(conn, "just_woken_up") and conn.just_woken_up:
+        conn.logger.bind(tag=TAG).info(f"短暂忽略VAD检测")
         have_voice = False
         # 设置一个短暂延迟后恢复VAD检测
         conn.asr_audio.clear()
         if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
+            conn.logger.bind(tag=TAG).info(f"进入if not hasattr")
             conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
         return
 
     if have_voice:
         if conn.client_is_speaking:
             conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
-            await handleAbortMessage(conn)
+            #await handleAbortMessage(conn)
     # 设备长时间空闲检测，用于say goodbye
-    await no_voice_close_connect(conn, have_voice)
+    #await no_voice_close_connect(conn, have_voice)
     # 接收音频
     conn.asr_start_time = time.time()
     conn.asr_logged = False
     await conn.asr.receive_audio(conn, audio, have_voice)
-
 
 async def resume_vad_detection(conn):
     # 等待2秒后恢复VAD检测
@@ -41,10 +43,10 @@ async def resume_vad_detection(conn):
 
 
 async def startToChat(conn, text):
-    if conn.need_bind:
-        await check_bind_device(conn)
-        return
-
+    # 取消设备验证if conn.need_bind:
+    #     await check_bind_device(conn)
+    #     return
+    conn.audio_timeout_triggered = False
     # 如果当日的输出字数大于限定的字数
     if conn.max_output_size > 0:
         if check_device_output_limit(
@@ -70,9 +72,37 @@ async def startToChat(conn, text):
 #增加一个图像识别
 async def startToChat(conn, text, imgurl=None):
     print("图像识别 startToChat：", imgurl)
-    if conn.need_bind:
-        await check_bind_device(conn)
-        return
+    conn.audio_timeout_triggered = False
+    speaker_name = None
+    actual_text = text
+    # if conn.need_bind:
+    #     await check_bind_device(conn)
+    #     return
+
+    try:
+        # 尝试解析JSON格式的输入
+        if text.strip().startswith('{') and text.strip().endswith('}'):
+            data = json.loads(text)
+            if 'speaker' in data and 'content' in data:
+                speaker_name = data['speaker']
+                actual_text = data['content']
+                conn.logger.bind(tag=TAG).info(f"解析到说话人信息: {speaker_name}")
+
+                # 直接使用JSON格式的文本，不解析
+                actual_text = text
+    except (json.JSONDecodeError, KeyError):
+        # 如果解析失败，继续使用原始文本
+        pass
+
+    # 保存说话人信息到连接对象
+    if speaker_name:
+        conn.current_speaker = speaker_name
+    else:
+        conn.current_speaker = None
+
+    # if conn.need_bind:
+    #     await check_bind_device(conn)
+    #     return
 
     # 字数限制检查
     if conn.max_output_size > 0:
@@ -91,10 +121,12 @@ async def startToChat(conn, text, imgurl=None):
 
     # 正常聊天流程
     await send_stt_message(conn, text)
-    if conn.intent_type == "function_call" and imgurl is None:
-        conn.executor.submit(conn.chat_with_function_calling, text)
-    else:
-        conn.executor.submit(conn.chat, text,[],imgurl)
+    conn.executor.submit(conn.chat, text,imgurl=imgurl)
+    # await send_stt_message(conn, text)
+    # if conn.intent_type == "function_call" and imgurl is None:
+    #     conn.executor.submit(conn.chat_with_function_calling, text)
+    # else:
+    #     conn.executor.submit(conn.chat, text,[],imgurl)
 
 
 async def no_voice_close_connect(conn, have_voice):

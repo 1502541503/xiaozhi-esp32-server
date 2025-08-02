@@ -120,6 +120,7 @@ class IntentProvider(IntentProviderBase):
         return llm_result
 
     async def detect_intent(self, conn, dialogue_history: List[Dict], text: str) -> str:
+        logger.bind(tag=TAG).info(f"进入llm意图: detect_intent")
         if not self.llm:
             raise ValueError("LLM provider not set")
         if conn.func_handler is None:
@@ -130,7 +131,7 @@ class IntentProvider(IntentProviderBase):
 
         # 打印使用的模型信息
         model_info = getattr(self.llm, "model_name", str(self.llm.__class__.__name__))
-        logger.bind(tag=TAG).debug(f"使用意图识别模型: {model_info}")
+        logger.bind(tag=TAG).info(f"使用意图识别模型: {model_info}")
 
         # 计算缓存键
         cache_key = hashlib.md5(text.encode()).hexdigest()

@@ -97,7 +97,7 @@ VAD:
   SileroVAD:
     threshold: 0.5
     model_dir: models/snakers4_silero-vad
-    min_silence_duration_ms: 700  # 如果说话停顿较长，可将此值调大
+    min_silence_duration_ms: 1200  # 如果说话停顿较长，可将此值调大
 ```
 
 ### 7、我想通过小智控制电灯、空调、远程开关机等操作 💡

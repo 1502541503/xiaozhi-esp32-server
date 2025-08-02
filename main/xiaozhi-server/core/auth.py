@@ -32,6 +32,10 @@ class AuthMiddleware:
         # 检查设备是否在白名单中
         device_id = headers.get("device-id", "")
 
+        self.logger.bind(tag=TAG).info(
+            f"检查设备是否在白名单中: device-id：{device_id}"
+        )
+
         if self.allowed_devices and device_id in self.allowed_devices:
             return True
 
