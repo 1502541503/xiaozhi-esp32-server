@@ -86,8 +86,13 @@ class LLMProvider(LLMProviderBase):
 
     def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         try:
+            deployment_name = self.deployment_name
+
+            if imgUrl:
+                dialogue = self.vllm_chat_response(dialogue, imgUrl, deployment_name)
+
             stream = self.client.chat.completions.create(
-                model=self.deployment_name,  # 使用 deployment_name
+                model=deployment_name,  # 使用 deployment_name
                 messages=dialogue,
                 stream=True,
                 tools=functions
@@ -96,7 +101,8 @@ class LLMProvider(LLMProviderBase):
             for chunk in stream:
                 if getattr(chunk, "choices", None):
                     yield chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls
-                    logger.bind(tag=TAG).info(f"LLM: {chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls}")
+                    logger.bind(tag=TAG).info(
+                        f"LLM: {chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls}")
                 elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
                     usage_info = getattr(chunk, "usage", None)
                     logger.bind(tag=TAG).info(
@@ -108,3 +114,58 @@ class LLMProvider(LLMProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"Error in function call streaming: {e}")
             yield f"【OpenAI服务响应异常: {e}】", None
+
+    def vllm_chat_response(self, dialogue, imgUrl, deployment_name):
+        domain_mapping = {
+            "https://dev-oss.iot-solution.net": "https://sma-hk-test.oss-accelerate.aliyuncs.com",
+            "https://test-oss.iot-solution.net": "https://sma-test.oss-accelerate.aliyuncs.com",
+            "https://api-oss.iot-solution.net": "https://sma-product.oss-accelerate.aliyuncs.com",
+            "https://coding-eu-oss.iot-solution.net": "https://coding-eu.oss-accelerate.aliyuncs.com",
+            "https://coding-shenzhen-oss.iot-solution.net": "https://coding-shenzhen.oss-accelerate.aliyuncs.com",
+            "https://coding-usa-oss.iot-solution.net": "https://coding-usa.oss-accelerate.aliyuncs.com"
+        }
+
+        for old_domain, new_domain in domain_mapping.items():
+            if imgUrl.startswith(old_domain):
+                imgUrl = imgUrl.replace(old_domain, new_domain, 1)
+                break  # 找到就替换，无需再判断后面的
+
+        deployment_name = "gpt4o"
+
+        logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},deployment_name:{deployment_name}")
+        logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
+
+        # 找到最后一条 user 消息
+        last_user = None
+        for i in range(len(dialogue) - 1, -1, -1):
+            if dialogue[i].get("role") == "user":
+                original_text = dialogue[i].get("content", "")
+                if not original_text or not original_text.strip():
+                    original_text = "请查看这张图片"
+                last_user = {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": original_text},
+                        {"type": "image_url", "image_url": {"url": imgUrl}}
+                    ]
+                }
+                break
+
+        # 保留所有 assistant.tool_calls + 对应 tool 消息
+        valid_tool_messages = []
+        valid_tool_ids = set()
+
+        for msg in dialogue:
+            if msg.get("role") == "assistant" and "tool_calls" in msg:
+                # 自动补 ID
+                for i, call in enumerate(msg["tool_calls"]):
+                    if not call.get("id"):
+                        call["id"] = f"tool_call_{i}"
+                    valid_tool_ids.add(call["id"])
+                valid_tool_messages.append(msg)
+            elif msg.get("role") == "tool" and msg.get("tool_call_id") in valid_tool_ids:
+                valid_tool_messages.append(msg)
+
+        # 构建最终 dialogue
+        dialogue = valid_tool_messages + ([last_user] if last_user else [])
+        return dialogue

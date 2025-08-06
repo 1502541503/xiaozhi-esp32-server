@@ -11,20 +11,13 @@ logger = setup_logging()
 class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__(config, delete_audio_file)
-        # self.api_key = config.get("api_key",
-        #                           "CVRQDgTVer542MefjllnQzstLoNa3nGxom9kXYBqGas1deBfcGCjJQQJ99AKACHrzpqXJ3w3AAABACOGnCdA")
-        # self.endpoint = config.get("endpoint", "https://sma-audio.openai.azure.com/")
-        # self.deployment_name = config.get("deployment_name","sma-audio")
-        # self.model = config.get("model", "tts-1")
-        # self.voice = config.get("voice", "alloy")
-
-        self.api_key = "CVRQDgTVer542MefjllnQzstLoNa3nGxom9kXYBqGas1deBfcGCjJQQJ99AKACHrzpqXJ3w3AAABACOGnCdA"
-        self.base_url = "https://sma-audio.openai.azure.com/openai/deployments/tts/audio/speech?api-version=2025-03-01-preview"
-        self.model = "tts-1"
-        self.voice = "alloy"
+        self.api_key = config.get("api_key")
+        self.base_url = config.get("base_url")
+        self.model = config.get("model")
+        self.voice = config.get("voice", "alloy")
+        self.api_version = config.get("api_version", "2025-04-01-preview")
 
         self.output_file = config.get("output_dir", "tmp/")
-        self.api_version = config.get("api_version", "2025-04-01-preview")
 
         # 验证必要配置
         if not self.api_key:
