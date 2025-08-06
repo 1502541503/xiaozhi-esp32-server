@@ -77,66 +77,65 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         }
     }
 
+//    @Override
+//    public Boolean deviceActivation(String agentId, String activationCode) {
+//        if (StringUtils.isBlank(activationCode)) {
+//            throw new RenException("激活码不能为空");
+//        }
+//        String deviceKey = "ota:activation:code:" + activationCode;
+//        Object cacheDeviceId = redisUtils.get(deviceKey);
+//        if (cacheDeviceId == null) {
+//            throw new RenException("激活码错误");
+//        }
+//        String deviceId = (String) cacheDeviceId;
+//        String safeDeviceId = deviceId.replace(":", "_").toLowerCase();
+//        String cacheDeviceKey = String.format("ota:activation:data:%s", safeDeviceId);
+//        Map<String, Object> cacheMap = (Map<String, Object>) redisUtils.get(cacheDeviceKey);
+//        if (cacheMap == null) {
+//            throw new RenException("激活码错误");
+//        }
+////        String cachedCode = (String) cacheMap.get("activation_code");
+//        String cachedCode = "837765";
+//        if (!activationCode.equals(cachedCode)) {
+//            throw new RenException("激活码错误");
+//        }
+//        // 检查设备有没有被激活
+//        if (selectById(deviceId) != null) {
+//            throw new RenException("设备已激活");
+//        }
+//
+//        String macAddress = (String) cacheMap.get("mac_address");
+//        String board = (String) cacheMap.get("board");
+//        String appVersion = (String) cacheMap.get("app_version");
+//        UserDetail user = SecurityUser.getUser();
+//        if (user.getId() == null) {
+//            throw new RenException("用户未登录");
+//        }
+//
+//        Date currentTime = new Date();
+//        DeviceEntity deviceEntity = new DeviceEntity();
+//        deviceEntity.setId(deviceId);
+//        deviceEntity.setBoard(board);
+//        deviceEntity.setAgentId(agentId);
+//        deviceEntity.setAppVersion(appVersion);
+//        deviceEntity.setMacAddress(macAddress);
+//        deviceEntity.setUserId(user.getId());
+//        deviceEntity.setCreator(user.getId());
+//        deviceEntity.setAutoUpdate(1);
+//        deviceEntity.setCreateDate(currentTime);
+//        deviceEntity.setUpdater(user.getId());
+//        deviceEntity.setUpdateDate(currentTime);
+//        deviceEntity.setLastConnectedAt(currentTime);
+//        deviceDao.insert(deviceEntity);
+//
+//        // 清理redis缓存
+//        redisUtils.delete(cacheDeviceKey);
+//        redisUtils.delete(deviceKey);
+//        return true;
+//    }
+
     @Override
-    public Boolean deviceActivation(String agentId, String activationCode) {
-        if (StringUtils.isBlank(activationCode)) {
-            throw new RenException("激活码不能为空");
-        }
-        String deviceKey = "ota:activation:code:" + activationCode;
-        Object cacheDeviceId = redisUtils.get(deviceKey);
-        if (cacheDeviceId == null) {
-            throw new RenException("激活码错误");
-        }
-        String deviceId = (String) cacheDeviceId;
-        String safeDeviceId = deviceId.replace(":", "_").toLowerCase();
-        String cacheDeviceKey = String.format("ota:activation:data:%s", safeDeviceId);
-        Map<String, Object> cacheMap = (Map<String, Object>) redisUtils.get(cacheDeviceKey);
-        if (cacheMap == null) {
-            throw new RenException("激活码错误");
-        }
-        String cachedCode = (String) cacheMap.get("activation_code");
-        if (!activationCode.equals(cachedCode)) {
-            throw new RenException("激活码错误");
-        }
-        // 检查设备有没有被激活
-        if (selectById(deviceId) != null) {
-            throw new RenException("设备已激活");
-        }
-
-        String macAddress = (String) cacheMap.get("mac_address");
-        String board = (String) cacheMap.get("board");
-        String appVersion = (String) cacheMap.get("app_version");
-        UserDetail user = SecurityUser.getUser();
-        if (user.getId() == null) {
-            throw new RenException("用户未登录");
-        }
-
-        Date currentTime = new Date();
-        DeviceEntity deviceEntity = new DeviceEntity();
-        deviceEntity.setId(deviceId);
-        deviceEntity.setBoard(board);
-        deviceEntity.setAgentId(agentId);
-        deviceEntity.setAppVersion(appVersion);
-        deviceEntity.setMacAddress(macAddress);
-        deviceEntity.setUserId(user.getId());
-        deviceEntity.setCreator(user.getId());
-        deviceEntity.setAutoUpdate(1);
-        deviceEntity.setCreateDate(currentTime);
-        deviceEntity.setUpdater(user.getId());
-        deviceEntity.setUpdateDate(currentTime);
-        deviceEntity.setLastConnectedAt(currentTime);
-        deviceDao.insert(deviceEntity);
-
-        // 清理redis缓存
-        redisUtils.delete(cacheDeviceKey);
-        redisUtils.delete(deviceKey);
-        return true;
-    }
-
-
-    @Override
-    public Boolean deviceActivation2(String agentId, String mac,Long userId) {
-        //SysUserDTO sysUserDTO = sysUserService.getByUserId(1L);
+    public Boolean deviceActivation(String agentId, String mac) {
         UserDetail user = SecurityUser.getUser();
         if (user.getId() == null) {
             throw new RenException("用户未登录");
@@ -148,20 +147,20 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         deviceEntity.setAgentId(agentId);
         deviceEntity.setAppVersion("1.0.0");
         deviceEntity.setMacAddress(mac);
-        deviceEntity.setUserId(userId);
-        deviceEntity.setCreator(userId);
+        deviceEntity.setUserId(user.getId());
+        deviceEntity.setCreator(user.getId());
         deviceEntity.setAutoUpdate(0);
         deviceEntity.setCreateDate(currentTime);
-        deviceEntity.setUpdater(userId);
+        deviceEntity.setUpdater(user.getId());
         deviceEntity.setUpdateDate(currentTime);
         deviceEntity.setLastConnectedAt(currentTime);
-        //deviceDao.insert(deviceEntity);
+        deviceDao.insert(deviceEntity);
         return true;
     }
 
     @Override
     public DeviceReportRespDTO checkDeviceActive(String macAddress, String clientId,
-            DeviceReportReqDTO deviceReport) {
+                                                 DeviceReportReqDTO deviceReport) {
         DeviceReportRespDTO response = new DeviceReportRespDTO();
         response.setServer_time(buildServerTime());
 
@@ -344,7 +343,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             code.setMessage(frontedUrl + "\n" + cachedCode);
             code.setChallenge(deviceId);
         } else {
-            String newCode = RandomUtil.randomNumbers(6);
+//            String newCode = RandomUtil.randomNumbers(6);
+            String newCode = "837765";
             code.setCode(newCode);
             String frontedUrl = sysParamsService.getValue(Constant.SERVER_FRONTED_URL, true);
             code.setMessage(frontedUrl + "\n" + newCode);
@@ -413,7 +413,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
     /**
      * 比较两个版本号
-     * 
+     *
      * @param version1 版本1
      * @param version2 版本2
      * @return 如果version1 > version2返回1，version1 < version2返回-1，相等返回0
