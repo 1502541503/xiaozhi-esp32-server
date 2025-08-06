@@ -157,7 +157,7 @@ async def no_voice_close_connect(conn, have_voice):
             # await startToChat(conn, prompt)
 
             conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
-            await conn.close()
+            #await conn.close()
             return
 
 

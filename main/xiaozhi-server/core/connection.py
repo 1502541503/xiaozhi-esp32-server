@@ -177,12 +177,13 @@ class ConnectionHandler:
             #     await ws.send(json.dumps({
             #         "type": "server",
             #         "status": "error",
-            #         "message": "Missing authorization information, please confirm if authorization is included"
+            #         "code": "5001",
+            #         "msg": "Missing authorization information, please confirm if authorization is included"
             #     }))
             #     await self.close(ws)
             #     return
             # try:
-            #     self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get("bleinfo")}")
+            #     self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get('bleinfo')}")
             #     mac_authorize = get_mac_api(
             #         self.headers.get("authorization"),
             #         self.headers.get("device-id"),
@@ -192,24 +193,24 @@ class ConnectionHandler:
             #         self.logger.bind(tag=TAG).error("设备未授权")
             #         await ws.send(json.dumps({
             #             "type": "server",
-            #             "code": "403",
-            #             "message": "Mac unauthorized"
+            #              "code": "5002",
+            #             "msg": "Mac unauthorized"
             #         }))
             #         await self.close(ws)
             #         return
             #
             #     self.logger.bind(tag=TAG).info("设备已授权")
-            #
+
             # except Exception as e:
             #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
             #     await ws.send(json.dumps({
             #         "type": "server",
-            #         "code": "403",
-            #         "message": f"{str(e)}"
+            #         "code": "5003",
+            #         "msg": f"授权请求失败：{str(e)}"
             #     }))
             #     await self.close(ws)
             #     return
-            # 获取并验证headers
+            # # 获取并验证headers
             self.headers = dict(ws.request.headers)
 
             if self.headers.get("device-id", None) is None:
@@ -264,8 +265,8 @@ class ConnectionHandler:
             except websockets.exceptions.ConnectionClosed as e:
                 self.logger.bind(tag=TAG).info("客户端断开连接")
 
-                recv_code = getattr(e.rcvd, "code", None)
-                recv_reason = getattr(e.rcvd, "reason", "")
+                recv_code = getattr(e, "code", None)
+                recv_reason = getattr(e, "reason", "")
                 send_code = getattr(e.sent, "code", None)
                 send_reason = getattr(e.sent, "reason", "")
 
@@ -1050,15 +1051,18 @@ class ConnectionHandler:
         try:
             # 取消超时任务
             if self.timeout_task:
+                self.logger.bind(tag=TAG).info("取消超时任务")
                 self.timeout_task.cancel()
                 self.timeout_task = None
 
             # 清理MCP资源
             if hasattr(self, "mcp_manager") and self.mcp_manager:
+                self.logger.bind(tag=TAG).info("清理 mcp_manager 资源")
                 await self.mcp_manager.cleanup_all()
 
             # 触发停止事件
             if self.stop_event:
+                self.logger.bind(tag=TAG).info("清空任务队列")
                 self.stop_event.set()
 
             # 清空任务队列

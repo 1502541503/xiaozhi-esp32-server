@@ -141,82 +141,77 @@ class ASRProvider(ASRProviderBase):
             },
         }
 
-    async def _send_request(
-        self, audio_data: List[bytes], segment_size: int
-    ) -> Optional[str]:
-        """Send request to Volcano ASR service."""
+    async def _send_request(self, audio_data: bytes, segment_size: int) -> Optional[str]:
+        """Send request to Doubao ASR WebSocket service, 只返回最终一句结果."""
         try:
             auth_header = {"Authorization": "Bearer; {}".format(self.access_token)}
-            async with websockets.connect(
-                self.ws_url, additional_headers=auth_header
-            ) as websocket:
-                # Prepare request data
-                request_params = self._construct_request(str(uuid.uuid4()))
-                payload_bytes = str.encode(json.dumps(request_params))
-                payload_bytes = gzip.compress(payload_bytes)
-                full_client_request = self._generate_header()
-                full_client_request.extend(
-                    (len(payload_bytes)).to_bytes(4, "big")
-                )  # payload size(4 bytes)
-                full_client_request.extend(payload_bytes)  # payload
+            async with websockets.connect(self.ws_url, additional_headers=auth_header) as websocket:
+                # 初始化请求
+                reqid = str(uuid.uuid4())
+                request_params = self._construct_request(reqid)
+                request_params["request"]["show_utterances"] = True
+                request_params["request"]["result_type"] = "single"
 
-                # Send header and metadata
-                # full_client_request
+                payload_bytes = gzip.compress(json.dumps(request_params).encode())
+                full_client_request = self._generate_header()
+                full_client_request.extend(len(payload_bytes).to_bytes(4, "big"))
+                full_client_request.extend(payload_bytes)
+
                 await websocket.send(full_client_request)
+
+                # 接收首个响应
                 res = await websocket.recv()
                 result = parse_response(res)
                 if (
-                    "payload_msg" in result
-                    and result["payload_msg"]["code"] != self.success_code
-                    and result["payload_msg"]["code"] != 1013  # 忽略无有效语音的错误
+                        "payload_msg" in result
+                        and result["payload_msg"]["code"] != self.success_code
+                        and result["payload_msg"]["code"] != 1013
                 ):
+                    logger.bind(tag=TAG).error(f"初始请求返回错误：{result}")
                     return None
+                logger.bind(tag=TAG).info(f"初始响应：{result}")
 
-
-                logger.bind(tag=TAG).info(f"语音识别返回的result：{result}")
-                for seq, (chunk, last) in enumerate(
-                    self.slice_data(audio_data, segment_size), 1
-                ):
-                    if last:
-                        audio_only_request = self._generate_header(
-                            message_type=CLIENT_AUDIO_ONLY_REQUEST,
-                            message_type_specific_flags=NEG_SEQUENCE,
-                        )
-                    else:
-                        audio_only_request = self._generate_header(
-                            message_type=CLIENT_AUDIO_ONLY_REQUEST
-                        )
+                # 发送音频分片
+                for seq, (chunk, last) in enumerate(self.slice_data(audio_data, segment_size), 1):
+                    print(f"分片 {seq}：长度={len(chunk)}，是否最后一个分片={last}")
+                    audio_only_request = self._generate_header(
+                        message_type=CLIENT_AUDIO_ONLY_REQUEST,
+                        message_type_specific_flags=NEG_SEQUENCE if last else NO_SEQUENCE,
+                    )
                     payload_bytes = gzip.compress(chunk)
-                    audio_only_request.extend(
-                        (len(payload_bytes)).to_bytes(4, "big")
-                    )  # payload size(4 bytes)
-                    audio_only_request.extend(payload_bytes)  # payload
-                    # Send audio data
+                    audio_only_request.extend(len(payload_bytes).to_bytes(4, "big"))
+                    audio_only_request.extend(payload_bytes)
+
                     await websocket.send(audio_only_request)
 
-                # Receive response
-                response = await websocket.recv()
-                result = parse_response(response)
+                # 接收最终一句响应
+                last_text = ""
+                while True:
+                    response = await websocket.recv()
+                    result = parse_response(response)
+                    logger.bind(tag=TAG).info(f"收到响应: {result}")
 
-                if (
-                    "payload_msg" in result
-                    and result["payload_msg"]["code"] == self.success_code
-                ):
-                    if len(result["payload_msg"]["result"]) > 0:
-                        return result["payload_msg"]["result"][0]["text"]
-                    return None
-                elif "payload_msg" in result and result["payload_msg"]["code"] == 1013:
-                    # 无有效语音，返回空字符串
-                    await websocket.send(json.dumps(
-                        {
-                            "type": "server",
-                            "msg": "无有效语音，返回空字符串"
-                        }
-                    ))
-                    logger.bind(tag=TAG).info(f"无有效语音，返回空字符串")
-                    return ""
-                else:
-                    return None
+                    payload_msg = result.get("payload_msg", {})
+                    code = payload_msg.get("code", -1)
+                    if code != self.success_code:
+                        if code == 1013:
+                            logger.bind(tag=TAG).info("无有效语音，返回空字符串")
+                            return ""
+                        logger.bind(tag=TAG).error(f"识别返回异常，code={code}，消息：{payload_msg.get('message')}")
+                        return None
+
+                    sequence = payload_msg.get("sequence", 1)
+                    result_list = payload_msg.get("result")
+                    if result_list:
+                        current_text = result_list[0].get("text", "")
+                        print(f"识别结果序号 {sequence} ：{current_text}")
+                        if current_text:
+                            last_text = current_text  # 每次更新
+
+                    if sequence < 0:
+                        break
+
+                return last_text
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"ASR request failed: {e}", exc_info=True)
@@ -261,7 +256,7 @@ class ASRProvider(ASRProviderBase):
             # 直接使用PCM数据
             # 计算分段大小 (单声道, 16bit, 16kHz采样率)
             size_per_sec = 1 * 2 * 16000  # nchannels * sampwidth * framerate
-            segment_size = int(size_per_sec * self.seg_duration / 1000)
+            segment_size = int(size_per_sec * 1000 / 1000)
 
             # 语音识别
             start_time = time.time()

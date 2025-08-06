@@ -104,7 +104,8 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
         await send_tts_message(conn, "stop", None)
         conn.client_is_speaking = False
         if conn.close_after_chat:
-            await conn.close()
+            conn.logger.bind(tag=TAG).info(f"发送结束消息=触发了{conn.close_after_chat}")
+        #    await conn.close()
 
 
 # 播放音频

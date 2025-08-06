@@ -157,7 +157,7 @@ class ASRProviderBase(ABC):
 
     async def _audio_no_checker(self, conn):
         try:
-            await asyncio.sleep(3)  # 设置超时时间（秒）
+            await asyncio.sleep(1)  # 设置超时时间（秒）
             conn.logger.bind(tag=TAG).info(f"整段都没声音，且后续客户端无音频推送:{len(conn.asr_audio)}")
             if len(conn.asr_audio)==100:
                 await conn.websocket.send(json.dumps(
