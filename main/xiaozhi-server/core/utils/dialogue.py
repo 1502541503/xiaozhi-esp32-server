@@ -59,6 +59,10 @@ class Dialogue:
         else:
             self.put(Message(role="system", content=new_content))
 
+    def clear_user_msg(self):
+        """清除所有非system类型的消息，只保留系统消息"""
+        self.dialogue = [msg for msg in self.dialogue if msg.role == "system"]
+
     def get_llm_dialogue_with_memory(
         self, memory_str: str = None
     ) -> List[Dict[str, str]]:

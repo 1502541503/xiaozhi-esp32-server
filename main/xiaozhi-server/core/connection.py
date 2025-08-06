@@ -743,6 +743,9 @@ class ConnectionHandler:
                     imgUrl=imgurl,
                 )
                 print(f"问答结束=={llm_responses}")
+                #判断如果本轮次是视觉识别，清除掉非系统会话记忆，防止会话异常
+                if imgurl:
+                    self.dialogue.clear_user_msg()
 
             else:
                 if getattr(self.llm, "provider", "") == "AliBL":

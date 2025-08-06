@@ -42,12 +42,24 @@ class LLMProvider(LLMProviderBase):
         self.client = openai.OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
-            # Azure: https://<resource>.openai.azure.com/openai/deployments/<deployment-name>
             default_headers={
                 "api-key": self.api_key
             }
         )
 
+        self.default_vllm_user_msg = "请描述我眼前的画面，包括场景、主要物体、文字和可能的品牌信息。"
+        self.vllm_system_prompt = """
+        你是一个专为智能眼镜设计的实时视觉识别助手。
+        你的任务是通过眼镜摄像头获取用户眼前的实时画面，进行快速、精准、简洁的环境理解，并通过语音向用户播报最关键的信息。
+        回答必须**极其简洁**，控制在1-2句话内，适合语音播报。
+        **注意**：直接输出纯文本，不要输出md格式。
+           
+        示例输出：
+        - “你正站在一个明亮的办公室里，画面中有一些办公物品，电脑、键盘，鼠标等。”
+        - “门上贴着一张便条，写着‘快递已取’。”   
+        - “你面前是一瓶东方树叶青柑普洱茶饮料，净含量900ml，背景中有一个键盘和一些黄色小鸭子装饰”   
+        
+        """
 
     def response(self, session_id, dialogue, **kwargs):
         print(f"response openai：{dialogue}")
@@ -111,42 +123,36 @@ class LLMProvider(LLMProviderBase):
 
             logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},modelname:{model_name}")
             logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
-            if imgUrl:
-                model_name = "qwen-vl-plus"
 
-                # 找到最后一条 user 消息
-                last_user = None
+            if imgUrl:
+
+                logger.bind(tag=TAG).info(f"开始图片识别=>")
+
+                model_name = "qwen-vl-max-latest"
+
+                # 提取最后的用户消息内容
+                original_text = ""
                 for i in range(len(dialogue) - 1, -1, -1):
                     if dialogue[i].get("role") == "user":
                         original_text = dialogue[i].get("content", "")
                         if not original_text or not original_text.strip():
-                            original_text = "请查看这张图片"
-                        last_user = {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": original_text},
-                                {"type": "image_url", "image_url": {"url": imgUrl}}
-                            ]
-                        }
+                            original_text = self.default_vllm_user_msg  # 默认文本
                         break
 
-                # 保留所有 assistant.tool_calls + 对应 tool 消息
-                valid_tool_messages = []
-                valid_tool_ids = set()
-
-                for msg in dialogue:
-                    if msg.get("role") == "assistant" and "tool_calls" in msg:
-                        # 自动补 ID
-                        for i, call in enumerate(msg["tool_calls"]):
-                            if not call.get("id"):
-                                call["id"] = f"tool_call_{i}"
-                            valid_tool_ids.add(call["id"])
-                        valid_tool_messages.append(msg)
-                    elif msg.get("role") == "tool" and msg.get("tool_call_id") in valid_tool_ids:
-                        valid_tool_messages.append(msg)
-
-                # 构建最终 dialogue
-                dialogue = valid_tool_messages + ([last_user] if last_user else [])
+                # 构建视觉识别的完整对话
+                dialogue = [
+                    {
+                        "role": "system",
+                        "content": self.vllm_system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": original_text},
+                            {"type": "image_url", "image_url": {"url": imgUrl}}
+                        ]
+                    }
+                ]
 
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
 
@@ -162,12 +168,11 @@ class LLMProvider(LLMProviderBase):
                 elif isinstance(getattr(chunk, 'usage', None), CompletionUsage):
                     usage_info = getattr(chunk, 'usage', None)
                     logger.bind(tag=TAG).info(
-                        f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，" 
+                        f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
                         f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
                         f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
                     )
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"问答异常: {e}")
-            #yield f"【OpenAI服务响应异常: {e}】", None
             yield f"【抱歉，服务器开小差，请再次尝试】", None
