@@ -56,8 +56,7 @@ class ASRProvider(ASRProviderBase):
 
     async def receive_audio(self, conn, audio, audio_have_voice):
         conn.asr_audio.append(audio)
-        conn.asr_audio = conn.asr_audio[-10:]
-
+        conn.asr_audio = conn.asr_audio[-100:]
         # 如果本次有声音，且之前没有建立连接
         if audio_have_voice and self.asr_ws is None and not self.is_processing:
             try:
@@ -111,7 +110,7 @@ class ASRProvider(ASRProviderBase):
 
                 # 发送缓存的音频数据
                 if conn.asr_audio and len(conn.asr_audio) > 0:
-                    for cached_audio in conn.asr_audio[-10:]:
+                    for cached_audio in conn.asr_audio[-100:]:
                         try:
                             pcm_frame = self.decoder.decode(cached_audio, 960)
                             payload = gzip.compress(pcm_frame)
@@ -154,7 +153,7 @@ class ASRProvider(ASRProviderBase):
                 try:
                     response = await self.asr_ws.recv()
                     result = self.parse_response(response)
-                    logger.bind(tag=TAG).debug(f"收到ASR结果: {result}")
+                    logger.bind(tag=TAG).info(f"收到ASR结果: {result}")
 
                     if "payload_msg" in result:
                         payload = result["payload_msg"]

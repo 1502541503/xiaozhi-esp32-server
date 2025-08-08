@@ -64,7 +64,7 @@ class Dialogue:
         self.dialogue = [msg for msg in self.dialogue if msg.role == "system"]
 
     def get_llm_dialogue_with_memory(
-        self, memory_str: str = None
+        self, memory_str: str = None,lon = None,lat = None
     ) -> List[Dict[str, str]]:
         # if memory_str is None or len(memory_str) == 0:
         #     #print(f"直接返回，不记忆")
@@ -78,12 +78,18 @@ class Dialogue:
             (msg for msg in self.dialogue if msg.role == "system"), None
         )
 
-        if system_message:
+        if lon and lat:
             enhanced_system_prompt = (
                 f"{system_message.content}\n\n"
-                f"以下是用户的历史记忆：\n```\n{memory_str}\n```"
+                f"用户所在经纬度：{lon},{lat}\n"
             )
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
+        # if system_message:
+        #     enhanced_system_prompt = (
+        #         f"{system_message.content}\n\n"
+        #         f"以下是用户的历史记忆：\n```\n{memory_str}\n```"
+        #     )
+        #     dialogue.append({"role": "system", "content": enhanced_system_prompt})
 
         # 获取非系统消息
         non_system_msgs = [m for m in self.dialogue if m.role != "system"]

@@ -121,7 +121,8 @@ class ASRProviderBase(ABC):
 
     # 处理语音停止
     async def handle_voice_stop(self, conn, asr_audio_task):
-        if len(asr_audio_task) < 10:
+        print("进入====handle_voice_stop")
+        if asr_audio_task and len(asr_audio_task) < 10:
             conn.logger.bind(tag=TAG).warning("识别结果太短，跳过对话处理")
             return
         raw_text, _ = await self.speech_to_text(

@@ -130,6 +130,9 @@ class ASRProvider(ASRProviderBase):
                 "sequence": 1,
                 "boosting_table_name": self.boosting_table_name,
                 "correct_table_name": self.correct_table_name,
+                "vad_signal": True,
+                "start_silence_time":3000,
+                "vad_silence_time":1000
             },
             "audio": {
                 "format": "raw",

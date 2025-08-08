@@ -69,6 +69,7 @@ class AccessToken:
 class ASRProvider(ASRProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__()
+        self.last_audio_time = None
         self.interface_type = InterfaceType.STREAM
         self.config = config
         self.text = ""
@@ -121,7 +122,10 @@ class ASRProvider(ASRProviderBase):
 
     async def receive_audio(self, conn, audio, audio_have_voice):
         conn.asr_audio.append(audio)
-        conn.asr_audio = conn.asr_audio[-10:]
+        conn.asr_audio = conn.asr_audio[-100:]
+
+        if audio_have_voice:
+            self.last_audio_time = time.time()
 
         # 参考豆包ASR：只在有声音且没有连接时建立连接
         if audio_have_voice and not self.is_processing:
@@ -178,7 +182,7 @@ class ASRProvider(ASRProviderBase):
                 "enable_punctuation_prediction": True,
                 "enable_inverse_text_normalization": True,
                 "max_sentence_silence": self.max_sentence_silence,
-                "enable_voice_detection": False,
+                "enable_voice_detection": True,
             }
         }
         await self.asr_ws.send(json.dumps(start_request, ensure_ascii=False))
@@ -216,7 +220,7 @@ class ASRProvider(ASRProviderBase):
 
                         # 发送缓存音频
                         if conn.asr_audio:
-                            for cached_audio in conn.asr_audio[-10:]:
+                            for cached_audio in conn.asr_audio[-100:]:
                                 try:
                                     pcm_frame = self.decoder.decode(cached_audio, 960)
                                     await self.asr_ws.send(pcm_frame)
@@ -228,11 +232,13 @@ class ASRProvider(ASRProviderBase):
                     if message_name == "TranscriptionResultChanged":
                         # 中间结果
                         text = payload.get("result", "")
+                        logger.bind(tag=TAG).warning(f"中间返回结果: {text}")
                         if text:
                             self.text = text
                     elif message_name == "SentenceEnd":
                         # 最终结果
                         text = payload.get("result", "")
+                        logger.bind(tag=TAG).warning(f"最终返回结果: {text}")
                         if text:
                             self.text = text
                             conn.reset_vad_states()
@@ -285,3 +291,34 @@ class ASRProvider(ASRProviderBase):
     async def close(self):
         """关闭资源"""
         await self._cleanup()
+
+    async def _check_silence_timeout(self, conn, timeout_seconds=1.0):
+        """无音频输入超过 timeout_seconds，则结束识别"""
+        while self.is_processing:
+            await asyncio.sleep(0.5)
+            now = time.time()
+            if self.last_audio_time and (now - self.last_audio_time > timeout_seconds):
+                logger.bind(tag=TAG).info("静音超时，自动停止识别")
+                await self._stop_recognition(conn)
+                break
+
+    async def _stop_recognition(self, conn):
+        """手动停止识别流程"""
+        if self.asr_ws:
+            try:
+                stop_request = {
+                    "header": {
+                        "namespace": "SpeechTranscriber",
+                        "name": "StopTranscription",
+                        "status": 20000000,
+                        "message_id": ''.join(random.choices('0123456789abcdef', k=32)),
+                    }
+                }
+                await self.asr_ws.send(json.dumps(stop_request))
+                logger.bind(tag=TAG).info("已发送 Stop 请求")
+            except Exception as e:
+                logger.bind(tag=TAG).warning(f"发送 Stop 请求失败: {e}")
+
+        # 清理
+        self.is_processing = False
+        self.server_ready = False

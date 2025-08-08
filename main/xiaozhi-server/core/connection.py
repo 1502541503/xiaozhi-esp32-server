@@ -59,6 +59,7 @@ class ConnectionHandler:
         _memory,
         _intent,
         server=None,
+
     ):
         self.common_config = config
         self.config = copy.deepcopy(config)
@@ -81,6 +82,9 @@ class ConnectionHandler:
         self.max_output_size = 0
         self.chat_history_conf = 0
         self.audio_format = "opus"
+
+        self.lon = None
+        self.lat = None
 
         # 客户端状态相关
         self.client_abort = False
@@ -116,6 +120,11 @@ class ConnectionHandler:
         self.client_no_voice_last_time = 0.0
         self.client_voice_stop = False
         self.client_voice_frame_count = 0
+
+        # VAD相关同步锁，防止并发访问vad_opus_buffer
+        self.vad_lock = asyncio.Lock()
+        # VAD音频缓存，接收的opus字节暂存这里
+        self.vad_opus_buffer = bytearray()
 
         # asr相关变量
         # 因为实际部署时可能会用到公共的本地ASR，不能把变量暴露给公共ASR
@@ -155,23 +164,49 @@ class ConnectionHandler:
 
     async def handle_connection(self, ws):
         try:
-            # self.headers = dict(ws.request.headers)
-            # # 这里是授权校验 暂时注释不发版本
-            # if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
-            #     # 尝试从 URL 的查询参数中获取 device-id
-            #     from urllib.parse import parse_qs, urlparse
-            #     # 从 WebSocket 请求中获取路径
-            #     request_path = ws.request.path
-            #     if not request_path:
-            #         self.logger.bind(tag=TAG).error("无法获取请求路径")
-            #         return
-            #     parsed_url = urlparse(request_path)
-            #     query_params = parse_qs(parsed_url.query)
-            #     if "device-id" in query_params:
-            #         self.headers["device-id"] = query_params["device-id"][0]
-            #         self.headers["client-id"] = query_params["client-id"][0]
-            #         self.headers["authorization"] = query_params["authorization"][0]
-            #
+            self.headers = dict(ws.request.headers)
+
+            ble_info_str = self.headers.get("BleInfo") or self.headers.get("bleinfo")
+            if ble_info_str:
+                try:
+                    ble_info = json.loads(ble_info_str)
+                    lon_raw = ble_info.get("longitude")
+                    lat_raw = ble_info.get("latitude")
+
+                    # 处理空字符串或None
+                    if lon_raw not in (None, ""):
+                        try:
+                            self.lon = round(float(lon_raw), 2)
+                        except (ValueError, TypeError):
+                            self.lon = None
+                    if lat_raw not in (None, ""):
+                        try:
+                            self.lat = round(float(lat_raw), 2)
+                        except (ValueError, TypeError):
+                            self.lat = None
+                except json.JSONDecodeError:
+                    pass
+            self.lon = 119.30
+            self.lat = 26.08
+            self.logger.bind(tag=TAG).error(f"经度：{self.lon},纬度：{self.lat}")
+            # 这里是授权校验 暂时注释不发版本
+            if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
+                # 尝试从 URL 的查询参数中获取 device-id
+                from urllib.parse import parse_qs, urlparse
+                # 从 WebSocket 请求中获取路径
+                request_path = ws.request.path
+                if not request_path:
+                    self.logger.bind(tag=TAG).error("无法获取请求路径")
+                    return
+                parsed_url = urlparse(request_path)
+                query_params = parse_qs(parsed_url.query)
+
+                if "device-id" in query_params:
+                    self.headers["device-id"] = query_params["device-id"][0]
+                    self.headers["client-id"] = query_params["client-id"][0]
+                    #self.headers["authorization"] = query_params["authorization"][0]
+                    self.headers["authorization"] = query_params.get("authorization", [""])[0]
+
             # if self.headers.get("authorization") is None:
             #     self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
             #     await ws.send(json.dumps({
@@ -182,34 +217,45 @@ class ConnectionHandler:
             #     }))
             #     await self.close(ws)
             #     return
-            # try:
-            #     self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get('bleinfo')}")
-            #     mac_authorize = get_mac_api(
-            #         self.headers.get("authorization"),
-            #         self.headers.get("device-id"),
-            #     )
-            #
-            #     if not mac_authorize:
-            #         self.logger.bind(tag=TAG).error("设备未授权")
-            #         await ws.send(json.dumps({
-            #             "type": "server",
-            #              "code": "5002",
-            #             "msg": "Mac unauthorized"
-            #         }))
-            #         await self.close(ws)
-            #         return
-            #
-            #     self.logger.bind(tag=TAG).info("设备已授权")
+            try:
+                # expected_token = "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj"
+                # auth_header = self.headers.get("authorization")
+                # if not auth_header or auth_header.strip() != expected_token:
+                #     await ws.send(json.dumps({
+                #         "type": "server",
+                #         "status": "error",
+                #         "code": "5001",
+                #         "msg": "authorization error"
+                #     }))
+                #     await self.close(ws)
+                #     return
+                self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get('bleinfo')}")
+                mac_authorize = get_mac_api(
+                    "",
+                    self.headers.get("device-id"),
+                )
 
-            # except Exception as e:
-            #     self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
-            #     await ws.send(json.dumps({
-            #         "type": "server",
-            #         "code": "5003",
-            #         "msg": f"授权请求失败：{str(e)}"
-            #     }))
-            #     await self.close(ws)
-            #     return
+                if not mac_authorize:
+                    self.logger.bind(tag=TAG).error("设备未授权")
+                    await ws.send(json.dumps({
+                        "type": "server",
+                         "code": "5002",
+                        "msg": "Mac unauthorized"
+                    }))
+                    await self.close(ws)
+                    return
+
+                self.logger.bind(tag=TAG).info("设备已授权")
+
+            except Exception as e:
+                self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
+                await ws.send(json.dumps({
+                    "type": "server",
+                    "code": "5003",
+                    "msg": f"授权请求失败：{str(e)}"
+                }))
+                await self.close(ws)
+                return
             # # 获取并验证headers
             self.headers = dict(ws.request.headers)
 
@@ -260,7 +306,7 @@ class ConnectionHandler:
 
             try:
                 async for message in self.websocket:
-                    print(f"[WebSocket] 收到消息: type={type(message)}, len={len(message) if isinstance(message, bytes) else '-'}")
+                    #print(f"[WebSocket] 收到消息: type={type(message)}, len={len(message) if isinstance(message, bytes) else '-'}")
                     await self._route_message(message)
             except websockets.exceptions.ConnectionClosed as e:
                 self.logger.bind(tag=TAG).info("客户端断开连接")
@@ -330,6 +376,17 @@ class ConnectionHandler:
             if self.asr is None:
                 return
             self.asr_audio_queue.put(message)
+                # 拼接到缓冲区
+            # self.audio_base_buffer += message
+            #
+            # # 每满一个 chunk_size（如100ms）送一次识别队列
+            # while len(self.audio_base_buffer) >= self.chunk_size:
+            #     chunk = self.audio_base_buffer[:self.chunk_size]
+            #     self.asr_audio_queue.put(chunk)
+            #     self.logger.bind(tag="ASR").info(
+            #         f"[送入识别] 缓存达到 {self.chunk_size} 字节，已送入识别队列，剩余缓存={len(self.audio_base_buffer) - self.chunk_size} 字节"
+            #     )
+            #     self.audio_base_buffer = self.audio_base_buffer[self.chunk_size:]
 
     async def handle_restart(self, message):
         """处理服务器重启请求"""
@@ -739,7 +796,7 @@ class ConnectionHandler:
                 print(f"进入====：2.{imgurl}，本次提问的是:{query}")
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(memory_str),
+                    self.dialogue.get_llm_dialogue_with_memory(lon = self.lon,lat = self.lat ,memory_str = memory_str),
                     functions=functions,
                     imgUrl=imgurl,
                 )

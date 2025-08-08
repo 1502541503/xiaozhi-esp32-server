@@ -65,9 +65,7 @@ class ManageApiClient:
         endpoint = endpoint.lstrip("/")
         response = cls._client.request(method, endpoint, **kwargs)
         response.raise_for_status()
-
         result = response.json()
-
         # 处理API返回的业务错误
         if result.get("code") == 10041:
             raise DeviceNotFoundException(result.get("msg"))
@@ -78,6 +76,20 @@ class ManageApiClient:
 
         # 返回成功数据
         return result.get("data") if result.get("code") == 0 else None
+
+    @classmethod
+    def _request2(cls, method: str, endpoint: str, **kwargs) -> int | None:
+        """发送单次HTTP请求并处理响应"""
+        endpoint = endpoint.lstrip("/")
+        response = cls._client.request(method, endpoint, **kwargs)
+        response.raise_for_status()
+
+        #print(f"请求结果：{response}")
+        #print("状态码:", response.status_code)
+        if response.status_code==200:
+            return 200
+        else:
+            return response.status_code
 
     @classmethod
     def _should_retry(cls, exception: Exception) -> bool:
@@ -104,6 +116,28 @@ class ManageApiClient:
             try:
                 # 执行请求
                 return cls._request(method, endpoint, **kwargs)
+            except Exception as e:
+                # 判断是否应该重试
+                if retry_count < cls.max_retries and cls._should_retry(e):
+                    retry_count += 1
+                    print(
+                        f"{method} {endpoint} 请求失败，将在 {cls.retry_delay:.1f} 秒后进行第 {retry_count} 次重试"
+                    )
+                    time.sleep(cls.retry_delay)
+                    continue
+                else:
+                    # 不重试，直接抛出异常
+                    raise
+
+    @classmethod
+    def _execute_request2(cls, method: str, endpoint: str, **kwargs) -> int | None:
+        """带重试机制的请求执行器"""
+        retry_count = 0
+
+        while retry_count <= cls.max_retries:
+            try:
+                # 执行请求
+                return cls._request2(method, endpoint, **kwargs)
             except Exception as e:
                 # 判断是否应该重试
                 if retry_count < cls.max_retries and cls._should_retry(e):
@@ -150,25 +184,32 @@ def get_mac(
     mac: str
 ) -> Optional[Dict]:
     """获取代理模型配置"""
-    response = ManageApiClient._instance._execute_request(
+    # response = ManageApiClient._instance._execute_request(
+    #     "POST",
+    #     "/config/get-mac",
+    #     json={
+    #         "authorization": authorization,
+    #         "mac": mac,
+    #         "platform": 5,
+    #     },
+    # )cls._request(method, endpoint, **kwargs)
+    response = ManageApiClient._instance._execute_request2(
         "POST",
-        "/config/get-mac",
+        "/ota/activate",
+        headers={
+            "Device-Id": mac,
+            "Client-Id": "esp32s3",
+        },
         json={
-            "authorization": authorization,
-            "mac": mac,
-            "platform": 5,
+            "Device-Id": mac,
+            "Client-Id": "esp32s3",
         },
     )
-    if response is None:
-        raise RuntimeError("接口无响应")
+    if(response == 200):
+        return mac
+    else:
+        return None
 
-    print(f"msg==={response.get('msg')}")
-    print(f"mac==={response.get('mac')}")
-
-    if response.get("mac") is None:
-        raise RuntimeError(f"{response.get('msg')}")
-
-    return response.get("mac")
 
 
 
