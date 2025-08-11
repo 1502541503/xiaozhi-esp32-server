@@ -2,8 +2,15 @@ import asyncio
 import json
 
 import websockets
-from websockets.http import Headers
-from websockets.legacy.exceptions import AbortHandshake
+try:
+    from websockets.http import Headers, Response
+except ImportError:
+    from websockets.legacy.http import Headers  # 旧版本没有 Response
+    Response = None
+try:
+    from websockets.exceptions import AbortHandshake
+except ImportError:
+    from websockets.legacy.exceptions import AbortHandshake
 
 from config.logger import setup_logging
 from core.connection import ConnectionHandler
