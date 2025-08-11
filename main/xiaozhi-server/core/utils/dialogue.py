@@ -81,7 +81,7 @@ class Dialogue:
         if lon and lat:
             enhanced_system_prompt = (
                 f"{system_message.content}\n\n"
-                f"用户所在经纬度：{lon},{lat}\n"
+                f"用户所在的经纬度location：{lon},{lat}\n"
             )
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
         # if system_message:

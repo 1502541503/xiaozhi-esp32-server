@@ -145,6 +145,7 @@ class ASRProvider(ASRProviderBase):
                 await self._cleanup()
 
     async def _start_recognition(self, conn):
+        self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
         """开始识别会话"""
         if self._is_token_expired():
             self._refresh_token()
@@ -281,6 +282,7 @@ class ASRProvider(ASRProviderBase):
             except:
                 pass
             self.asr_ws = None
+
 
     async def speech_to_text(self, opus_data, session_id, audio_format):
         """获取识别结果"""

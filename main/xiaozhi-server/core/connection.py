@@ -186,10 +186,10 @@ class ConnectionHandler:
                             self.lat = None
                 except json.JSONDecodeError:
                     pass
-            self.lon = 119.30
-            self.lat = 26.08
+            #self.lon = 119.30
+            #self.lat = 26.08
             self.logger.bind(tag=TAG).error(f"经度：{self.lon},纬度：{self.lat}")
-            # 这里是授权校验 暂时注释不发版本
+            #这里是授权校验 暂时注释不发版本
             if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
                 # 尝试从 URL 的查询参数中获取 device-id
                 from urllib.parse import parse_qs, urlparse
@@ -218,7 +218,7 @@ class ConnectionHandler:
             #     await self.close(ws)
             #     return
             try:
-                # expected_token = "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj"
+                expected_token = "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj"
                 # auth_header = self.headers.get("authorization")
                 # if not auth_header or auth_header.strip() != expected_token:
                 #     await ws.send(json.dumps({

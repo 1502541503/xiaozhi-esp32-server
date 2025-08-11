@@ -1,10 +1,16 @@
 import asyncio
+import json
+
 import websockets
+from websockets.http import Headers
+from websockets.legacy.exceptions import AbortHandshake
+
 from config.logger import setup_logging
 from core.connection import ConnectionHandler
 from config.config_loader import get_config_from_api
 from core.utils.modules_initialize import initialize_modules
 from core.utils.util import check_vad_update, check_asr_update
+from urllib.parse import urlparse, parse_qs
 
 TAG = __name__
 
@@ -62,8 +68,29 @@ class WebSocketServer:
 
     async def _http_response(self, websocket, request_headers):
         # 检查是否为 WebSocket 升级请求
+        ble_info_str  = request_headers.headers.get("bleinfo") or request_headers.headers.get("BleInfo")
+
+
+        pid = None
+
+        if ble_info_str:
+            try:
+                # 解析 JSON 字符串
+                ble_info = json.loads(ble_info_str)
+                pid = ble_info.get("pid")
+                #self.logger.bind(tag=TAG).info(f"解析到 pid: {pid}")
+            except Exception as e:
+                self.logger.bind(tag=TAG).debug(f"bleinfo 解析失败: {e}")
+
         if request_headers.headers.get("connection", "").lower() == "upgrade":
             # 如果是 WebSocket 请求，返回 None 允许握手继续
+            if pid == "4":
+                #self.logger.bind(tag=TAG).warning(f"拒绝连接：pid 非法 ，实际 pid = {pid}")
+                return AbortHandshake(
+                    403,
+                    Headers([("Content-Type", "text/plain; charset=utf-8")]),
+                    b"Forbidden: pid not allowed\n"
+                )
             return None
         else:
             # 如果是普通 HTTP 请求，返回 "server is running"
