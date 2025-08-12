@@ -121,7 +121,7 @@ def fetch_weather_page(url):
 
 
 def parse_weather_info(soup):
-    print(f"进入天气插件: {soup}")
+    # print(f"进入天气插件: {soup}")
     city_name = soup.select_one("h1.c-submenu__location").get_text(strip=True)
 
     current_abstract = soup.select_one(".c-city-weather-current .current-abstract")
@@ -154,7 +154,7 @@ def parse_weather_info(soup):
 
 @register_function("get_weather", GET_WEATHER_FUNCTION_DESC, ToolType.SYSTEM_CTL)
 def get_weather(conn, location: str = None, lang: str = "zh_CN"):
-    print(f"进入天气插件: {conn}")
+    # print(f"进入天气插件: {conn}")
     #api_host = conn.config["plugins"]["get_weather"].get("api_host", "pq5vxm8qxh.re.qweatherapi.com")
     api_host = "pq5vxm8qxh.re.qweatherapi.com"
     #api_key = conn.config["plugins"]["get_weather"].get("api_key", "3ad97c63375a4911ab3c655a375c126b")
