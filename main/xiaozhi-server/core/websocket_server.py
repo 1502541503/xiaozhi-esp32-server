@@ -19,6 +19,8 @@ from core.utils.modules_initialize import initialize_modules
 from core.utils.util import check_vad_update, check_asr_update
 from urllib.parse import urlparse, parse_qs
 
+import logging
+
 TAG = __name__
 
 
@@ -26,6 +28,9 @@ class WebSocketServer:
     def __init__(self, config: dict):
         self.config = config
         self.logger = setup_logging()
+
+        logging.getLogger('websockets.server').setLevel(logging.CRITICAL)
+
         self.config_lock = asyncio.Lock()
         modules = initialize_modules(
             self.logger,
@@ -77,7 +82,6 @@ class WebSocketServer:
         # 检查是否为 WebSocket 升级请求
         ble_info_str  = request_headers.headers.get("bleinfo") or request_headers.headers.get("BleInfo")
 
-
         pid = None
 
         if ble_info_str:
@@ -93,7 +97,7 @@ class WebSocketServer:
             # 如果是 WebSocket 请求，返回 None 允许握手继续
             if pid == "4":
                 #self.logger.bind(tag=TAG).warning(f"拒绝连接：pid 非法 ，实际 pid = {pid}")
-                return AbortHandshake(
+                raise AbortHandshake(
                     403,
                     Headers([("Content-Type", "text/plain; charset=utf-8")]),
                     b"Forbidden: pid not allowed\n"
