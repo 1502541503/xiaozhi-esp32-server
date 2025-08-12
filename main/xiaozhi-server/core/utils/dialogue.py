@@ -78,12 +78,14 @@ class Dialogue:
             (msg for msg in self.dialogue if msg.role == "system"), None
         )
 
+        system_content =  system_message.content
+
+        # 追加角色设定-用户经纬度（用于查询用户当前天气）
         if lon and lat:
-            enhanced_system_prompt = (
-                f"{system_message.content}\n\n"
-                f"用户所在的经纬度location：{lon},{lat}\n"
-            )
-            dialogue.append({"role": "system", "content": enhanced_system_prompt})
+            system_content += f"\n用户所在的经纬度location：{lon},{lat}\n"
+
+        dialogue.append({"role": "system", "content": system_content})
+
         # if system_message:
         #     enhanced_system_prompt = (
         #         f"{system_message.content}\n\n"
