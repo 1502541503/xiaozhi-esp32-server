@@ -70,7 +70,7 @@ class ASRProviderBase(ABC):
     # 这里默认是非流式的处理方式
     # 流式处理方式请在子类中重写
     async def receive_audio(self, conn, audio, audio_have_voice):
-        #print(f"开始接收音频===={audio_have_voice}")
+        # print(f"开始接收音频===={audio_have_voice}")
         await conn.websocket.send(json.dumps(
             {
                 "type": "server",
@@ -90,7 +90,7 @@ class ASRProviderBase(ABC):
         conn.asr_audio.append(audio)
         if have_voice == False and conn.client_have_voice == False:
             conn.asr_audio = conn.asr_audio[-100:]
-            #print(f"本次接受的音频没有声音，本段也没声音，把声音丢弃.have_voice={have_voice}.client_have_voice={conn.client_have_voice}")
+            # print(f"本次接受的音频没有声音，本段也没声音，把声音丢弃.have_voice={have_voice}.client_have_voice={conn.client_have_voice}")
             if not conn.audio_timeout_triggered:
                 if hasattr(conn, "audio_timeout_task"):
                     conn.audio_timeout_task.cancel()
@@ -126,7 +126,7 @@ class ASRProviderBase(ABC):
             conn.logger.bind(tag=TAG).warning("识别结果太短，跳过对话处理")
             return
         raw_text, _ = await self.speech_to_text(
-            asr_audio_task, conn.session_id, conn.audio_format
+            asr_audio_task, conn.session_id, conn.audio_format, conn.headers.get("accept-language", "zh")
         )  # 确保ASR模块返回原始文本
 
         conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
@@ -160,7 +160,7 @@ class ASRProviderBase(ABC):
         try:
             await asyncio.sleep(1)  # 设置超时时间（秒）
             conn.logger.bind(tag=TAG).info(f"整段都没声音，且后续客户端无音频推送:{len(conn.asr_audio)}")
-            if len(conn.asr_audio)==100:
+            if len(conn.asr_audio) == 100:
                 await conn.websocket.send(json.dumps(
                     {
                         "type": "server",
@@ -195,7 +195,7 @@ class ASRProviderBase(ABC):
 
     @abstractmethod
     async def speech_to_text(
-        self, opus_data: List[bytes], session_id: str, audio_format="opus"
+            self, opus_data: List[bytes], session_id: str, audio_format="opus", language: str = None
     ) -> Tuple[Optional[str], Optional[str]]:
         """将语音数据转换为文本"""
         pass
@@ -217,7 +217,8 @@ class ASRProviderBase(ABC):
         try:
             with ThreadPoolExecutor(max_workers=4) as executor:
                 decoder_list = [opuslib_next.Decoder(16000, 1) for _ in range(len(opus_data))]
-                results = executor.map(ASRProviderBase.decode_frame, zip(decoder_list, opus_data, range(len(opus_data))))
+                results = executor.map(ASRProviderBase.decode_frame,
+                                       zip(decoder_list, opus_data, range(len(opus_data))))
                 return list(results)
         except Exception as e:
             logger.bind(tag=ASRProviderBase.TAG).error(f"音频解码过程发生错误: {e}", exc_info=True)

@@ -41,6 +41,19 @@ class LLMProvider(LLMProviderBase):
 
         check_model_key("LLM", self.api_key)
 
+        self.default_vllm_user_msg = "Please describe the image I see, including the scene, main objects, text, and possible branding."
+        self.vllm_system_prompt = """
+        You are a real-time visual recognition assistant designed for smart glasses.
+        Your task is to capture the user's real-time image through the glasses' camera, quickly, accurately, and concisely understand the environment, and then present the most critical information to the user via voice.
+        Your responses must be extremely concise, limited to 1-2 sentences, and suitable for voice delivery.
+
+        Sample output:
+        - "You are standing in a brightly lit office. The image contains some office supplies, including a computer, keyboard, and mouse."
+        - "There is a note on the door that reads 'Delivery Picked Up.'"
+        - "In front of you is a 900ml bottle of Oriental Leaf Green Mandarin Pu'er Tea. In the background is a keyboard and some yellow duck decorations."
+
+        """
+
         # 使用 AzureOpenAI 客户端
         self.client = AzureOpenAI(
             azure_endpoint=self.endpoint,
@@ -135,37 +148,28 @@ class LLMProvider(LLMProviderBase):
         logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},deployment_name:{deployment_name}")
         logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
 
-        # 找到最后一条 user 消息
-        last_user = None
+        # 提取最后的用户消息内容
+        original_text = ""
         for i in range(len(dialogue) - 1, -1, -1):
             if dialogue[i].get("role") == "user":
                 original_text = dialogue[i].get("content", "")
                 if not original_text or not original_text.strip():
-                    original_text = "请查看这张图片"
-                last_user = {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": original_text},
-                        {"type": "image_url", "image_url": {"url": imgUrl}}
-                    ]
-                }
+                    original_text = self.default_vllm_user_msg  # 默认文本
                 break
 
-        # 保留所有 assistant.tool_calls + 对应 tool 消息
-        valid_tool_messages = []
-        valid_tool_ids = set()
+        # 构建视觉识别的完整对话
+        dialogue = [
+            {
+                "role": "system",
+                "content": self.vllm_system_prompt
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": original_text},
+                    {"type": "image_url", "image_url": {"url": imgUrl}}
+                ]
+            }
+        ]
 
-        for msg in dialogue:
-            if msg.get("role") == "assistant" and "tool_calls" in msg:
-                # 自动补 ID
-                for i, call in enumerate(msg["tool_calls"]):
-                    if not call.get("id"):
-                        call["id"] = f"tool_call_{i}"
-                    valid_tool_ids.add(call["id"])
-                valid_tool_messages.append(msg)
-            elif msg.get("role") == "tool" and msg.get("tool_call_id") in valid_tool_ids:
-                valid_tool_messages.append(msg)
-
-        # 构建最终 dialogue
-        dialogue = valid_tool_messages + ([last_user] if last_user else [])
         return dialogue
