@@ -52,7 +52,6 @@ class LLMProvider(LLMProviderBase):
         你是一个专为智能眼镜设计的实时视觉识别助手。
         你的任务是通过眼镜摄像头获取用户眼前的实时画面，进行快速、精准、简洁的环境理解，并通过语音向用户播报最关键的信息。
         回答必须**极其简洁**，控制在1-2句话内，适合语音播报。
-        **注意**：直接输出纯文本，不要输出md格式。
            
         示例输出：
         - “你正站在一个明亮的办公室里，画面中有一些办公物品，电脑、键盘，鼠标等。”
@@ -128,7 +127,7 @@ class LLMProvider(LLMProviderBase):
 
                 logger.bind(tag=TAG).info(f"开始图片识别=>")
 
-                model_name = "qwen-vl-max-latest"
+                model_name = "qwen-vl-plus"
 
                 # 提取最后的用户消息内容
                 original_text = ""
