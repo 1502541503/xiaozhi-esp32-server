@@ -37,6 +37,39 @@ emoji_map = {
     "confused": "🙄",
 }
 
+"""
+解析 Accept-Language 头部，提取主要语言代码
+
+Args:
+    accept_language_header: Accept-Language 头部值，如 'zh-CN,zh;q=0.9' 或 'zh,en'
+
+Returns:
+    str: 提取的主要语言代码，如 'zh', 'en' 等
+"""
+def _parse_accept_language(accept_language_header: str) -> str:
+
+    if not accept_language_header:
+        return None
+
+    # 分割语言选项
+    languages = accept_language_header.split(',')
+
+    if not languages:
+        return None
+
+    # 获取第一个语言选项（权重最高或第一个列出的）
+    primary_language = languages[0].strip()
+
+    # 移除质量值部分 (q=x.x)
+    if ';' in primary_language:
+        primary_language = primary_language.split(';')[0]
+
+    # 如果包含连字符，提取主要语言部分
+    if '-' in primary_language:
+        primary_language = primary_language.split('-')[0]
+
+    # 确保返回小写格式
+    return primary_language.lower() if primary_language else None
 
 def get_local_ip():
     try:
