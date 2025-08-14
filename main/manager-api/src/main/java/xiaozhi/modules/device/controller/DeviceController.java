@@ -1,26 +1,28 @@
 package xiaozhi.modules.device.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.annotation.ExcelProperty;
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.read.listener.ReadListener;
+import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.api.IotSolutionClient;
+import xiaozhi.modules.device.dto.BatchBindDeviceDTO;
 import xiaozhi.modules.device.dto.DeviceRegisterDTO;
 import xiaozhi.modules.device.dto.DeviceUnBindDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -41,9 +43,91 @@ public class DeviceController {
     @PostMapping("/bind/{agentId}/{deviceCode}")
     @Operation(summary = "绑定设备")
     @RequiresPermissions("sys:role:normal")
-    public Result<Void> bindDevice(@PathVariable String agentId, @PathVariable String deviceCode) {
+        public Result<Void> bindDevice(@PathVariable String agentId, @PathVariable String deviceCode) {
         deviceService.deviceActivation(agentId, deviceCode);
         return new Result<>();
+    }
+
+//    TODO:需要忽略excel首行
+    @PostMapping("/bind/batch")
+    @Operation(summary = "批量绑定设备")
+    @RequiresPermissions("sys:role:normal")
+    public Result<Void> batchBindDevices(
+            @RequestParam("agentId") String agentId,
+            @RequestParam("file") MultipartFile file) {
+
+        if (StringUtils.isBlank(agentId)) {
+            return new Result<Void>().error(ErrorCode.NOT_NULL, "agentId不能为空");
+        }
+
+        if (file == null || file.isEmpty()) {
+            return new Result<Void>().error(ErrorCode.NOT_NULL, "文件不能为空");
+        }
+
+        try {
+            // 使用EasyExcel解析Excel文件
+            List<String> deviceCodes = new ArrayList<>();
+            EasyExcel.read(file.getInputStream(), DeviceCodeData.class, new DeviceCodeReadListener(deviceCodes, 5000))
+                    .sheet()
+                    .doRead();
+
+            if (deviceCodes.isEmpty()) {
+                return new Result<Void>().error(ErrorCode.NOT_NULL, "文件中未解析到有效的设备码");
+            }
+
+            // 批量绑定设备
+            for (String deviceCode : deviceCodes) {
+                try {
+                    deviceService.deviceActivation(agentId, deviceCode);
+                } catch (Exception e) {
+                    // 记录错误但继续处理其他设备
+                    e.printStackTrace();
+                }
+            }
+
+            return new Result<>();
+        } catch (Exception e) {
+            return new Result<Void>().error("文件解析失败: " + e.getMessage());
+        }
+    }
+
+    @Data
+    public static class DeviceCodeData {
+        @ExcelProperty
+        private String deviceCode;
+    }
+
+
+    // 读取监听器，用于处理Excel读取过程
+    public static class DeviceCodeReadListener implements ReadListener<DeviceCodeData> {
+        private final List<String> deviceCodes;
+        private final int maxCount;
+        private int currentCount = 0;
+
+        public DeviceCodeReadListener(List<String> deviceCodes, int maxCount) {
+            this.deviceCodes = deviceCodes;
+            this.maxCount = maxCount;
+        }
+
+        @Override
+        public void invoke(DeviceCodeData deviceCodeData, AnalysisContext analysisContext) {
+            // 限制条数为5000
+            if (currentCount >= maxCount) {
+                throw new RuntimeException("设备码数量超过最大限制: " + maxCount);
+            }
+
+            if (StringUtils.isNotBlank(deviceCodeData.getDeviceCode())) {
+                deviceCodes.add(deviceCodeData.getDeviceCode());
+                currentCount++;
+            }
+        }
+
+        @Override
+        public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+            // 所有数据解析完成后的操作
+            System.out.println("导入完成");
+
+        }
     }
 
     @PostMapping("/register")
