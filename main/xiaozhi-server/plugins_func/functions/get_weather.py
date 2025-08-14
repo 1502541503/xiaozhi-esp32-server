@@ -12,16 +12,16 @@ GET_WEATHER_FUNCTION_DESC = {
     "function": {
         "name": "get_weather",
         "description": (
-            "获取某个地点的天气，用户应提供一个位置或者经度纬度坐标，比如用户说杭州天气，参数为：杭州;比如116.41,39.92"
+            "获取某个地点的天气，用户应提供一个位置，比如用户说杭州天气，参数为：杭州;"
             "如果用户说的是省份，默认用省会城市。如果用户说的不是省份或城市而是一个地名，默认用该地所在省份的省会城市。"
-            "如果用户没有指明地点，说“天气怎么样”，”今天天气如何“，location参数为空"
+            "如果用户没有指明地点，说“天气怎么样”，”今天天气如何“，location参数为空。"
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "location": {
                     "type": "string",
-                    "description": "地点名或者经度纬度坐标(最多支持小数点后两位)，例如杭州，例如116.41,39.92。可选参数，如果不提供则不传",
+                    "description": "地点名，例如杭州。可选参数，如果不提供则不传",
                 },
                 "lang": {
                     "type": "string",
@@ -163,10 +163,11 @@ def get_weather(conn, location: str = None, lang: str = "zh_CN"):
     default_location = "default_location"
     client_ip = conn.client_ip
     # 优先使用用户提供的location参数
-    print(f"用户所在地是===={location}")
     if not location:
-        # 通过客户端IP解析城市
-        if client_ip:
+        if conn.lon and conn.lat:
+            location = f"{conn.lon},{conn.lat}"
+        elif client_ip:
+            # 通过客户端IP解析城市
             # 动态解析IP对应的城市信息
             ip_info = get_ip_info(client_ip, logger)
             location = ip_info.get("city") if ip_info and "city" in ip_info else None
@@ -183,7 +184,7 @@ def get_weather(conn, location: str = None, lang: str = "zh_CN"):
         return ActionResponse(Action.REQLLM, None, "请求失败")
     city_name, current_abstract, current_basic, temps_list = parse_weather_info(soup)
 
-    weather_report = f"您查询的位置是：{city_name}\n\n当前天气: {current_abstract}\n"
+    weather_report = f"您查询的位置是：{city_name}\n\n当前天气: {current_abstract}\n你回复时必须说明用户的查询的位置名称\n"
 
     # 添加有效的当前天气参数
     if current_basic:

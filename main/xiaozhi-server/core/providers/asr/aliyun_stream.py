@@ -79,6 +79,8 @@ class ASRProvider(ASRProviderBase):
         self.is_processing = False
         self.server_ready = False  # 服务器准备状态
 
+        self._voice_stop_handled = False
+
         # 基础配置
         self.access_key_id = config.get("access_key_id")
         self.access_key_secret = config.get("access_key_secret")
@@ -121,9 +123,9 @@ class ASRProvider(ASRProviderBase):
         await super().open_audio_channels(conn)
 
     async def receive_audio(self, conn, audio, audio_have_voice):
+        #print(f"进入阿里流式receive_audio。audio_have_voice={audio_have_voice}.self.is_processing={self.is_processing}")
         conn.asr_audio.append(audio)
         conn.asr_audio = conn.asr_audio[-100:]
-
         if audio_have_voice:
             self.last_audio_time = time.time()
 
@@ -145,7 +147,10 @@ class ASRProvider(ASRProviderBase):
                 await self._cleanup()
 
     async def _start_recognition(self, conn):
-        self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
+        #print("开始识别了")
+        #self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
+        self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn, timeout_seconds=1.0))
+
         """开始识别会话"""
         if self._is_token_expired():
             self._refresh_token()
@@ -183,7 +188,7 @@ class ASRProvider(ASRProviderBase):
                 "enable_punctuation_prediction": True,
                 "enable_inverse_text_normalization": True,
                 "max_sentence_silence": self.max_sentence_silence,
-                "enable_voice_detection": True,
+                "enable_voice_detection": False,
             }
         }
         await self.asr_ws.send(json.dumps(start_request, ensure_ascii=False))
@@ -191,6 +196,7 @@ class ASRProvider(ASRProviderBase):
 
     async def _forward_results(self, conn):
         """转发识别结果"""
+        last_result_time = time.time()
         try:
             while self.asr_ws and not conn.stop_event.is_set():
                 try:
@@ -236,6 +242,7 @@ class ASRProvider(ASRProviderBase):
                         logger.bind(tag=TAG).warning(f"中间返回结果: {text}")
                         if text:
                             self.text = text
+                            last_result_time = time.time()
                     elif message_name == "SentenceEnd":
                         # 最终结果
                         text = payload.get("result", "")
@@ -243,7 +250,7 @@ class ASRProvider(ASRProviderBase):
                         if text:
                             self.text = text
                             conn.reset_vad_states()
-                            await self.handle_voice_stop(conn, None)
+                            await self.safe_handle_voice_stop(conn, None)
                             break
                     elif message_name == "TranscriptionCompleted":
                         # 识别完成
@@ -251,6 +258,13 @@ class ASRProvider(ASRProviderBase):
                         break
 
                 except asyncio.TimeoutError:
+                    now = time.time()
+                    if now - last_result_time > 2.0:
+                        if self.text:
+                            logger.bind(tag=TAG).info("超过2秒无新最终结果，主动结束识别")
+                            conn.reset_vad_states()
+                            await self.safe_handle_voice_stop(conn, None)
+                        break
                     continue
                 except websockets.exceptions.ConnectionClosed:
                     break
@@ -265,8 +279,13 @@ class ASRProvider(ASRProviderBase):
 
     async def _cleanup(self):
         """清理资源"""
+        print("asr清理资源")
+        self._voice_stop_handled = False
         self.is_processing = False
         self.server_ready = False  # 重置服务器准备状态
+        self.text = ""
+        if hasattr(self, "silence_check_task") and not self.silence_check_task.done():
+            self.silence_check_task.cancel()
 
         if self.forward_task and not self.forward_task.done():
             self.forward_task.cancel()
@@ -284,7 +303,7 @@ class ASRProvider(ASRProviderBase):
             self.asr_ws = None
 
 
-    async def speech_to_text(self, opus_data, session_id, audio_format):
+    async def speech_to_text(self, opus_data, session_id, audio_format,language: str = None):
         """获取识别结果"""
         result = self.text
         self.text = ""
@@ -297,10 +316,16 @@ class ASRProvider(ASRProviderBase):
     async def _check_silence_timeout(self, conn, timeout_seconds=1.0):
         """无音频输入超过 timeout_seconds，则结束识别"""
         while self.is_processing:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)  # 频率可以更高一些，减少延迟
             now = time.time()
-            if self.last_audio_time and (now - self.last_audio_time > timeout_seconds):
-                logger.bind(tag=TAG).info("静音超时，自动停止识别")
+            if self.last_audio_time is None:
+                # 如果还没收到过音频，等1秒后也结束
+                await asyncio.sleep(timeout_seconds)
+                logger.bind(tag=TAG).info("1秒内无音频输入，自动停止识别")
+                await self._stop_recognition(conn)
+                break
+            elif now - self.last_audio_time > timeout_seconds:
+                logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
                 await self._stop_recognition(conn)
                 break
 
@@ -321,6 +346,16 @@ class ASRProvider(ASRProviderBase):
             except Exception as e:
                 logger.bind(tag=TAG).warning(f"发送 Stop 请求失败: {e}")
 
+        # 清理
+        self.is_processing = False
+        self.server_ready = False
+
+    async def safe_handle_voice_stop(self, conn, arg):
+        if self._voice_stop_handled:
+            logger.bind(tag=TAG).info("handle_voice_stop 已处理，跳过重复调用")
+            return
+        self._voice_stop_handled = True
+        await self.handle_voice_stop(conn, arg)
         # 清理
         self.is_processing = False
         self.server_ready = False

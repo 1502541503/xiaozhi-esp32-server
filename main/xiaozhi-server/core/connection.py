@@ -61,6 +61,7 @@ class ConnectionHandler:
         server=None,
 
     ):
+        self.isAiOnline = None
         self.common_config = config
         self.config = copy.deepcopy(config)
         self.session_id = str(uuid.uuid4())
@@ -121,11 +122,6 @@ class ConnectionHandler:
         self.client_voice_stop = False
         self.client_voice_frame_count = 0
 
-        # VAD相关同步锁，防止并发访问vad_opus_buffer
-        self.vad_lock = asyncio.Lock()
-        # VAD音频缓存，接收的opus字节暂存这里
-        self.vad_opus_buffer = bytearray()
-
         # asr相关变量
         # 因为实际部署时可能会用到公共的本地ASR，不能把变量暴露给公共ASR
         # 所以涉及到ASR的变量，需要在这里定义，属于connection的私有变量
@@ -172,6 +168,7 @@ class ConnectionHandler:
                     ble_info = json.loads(ble_info_str)
                     lon_raw = ble_info.get("longitude")
                     lat_raw = ble_info.get("latitude")
+                    self.isAiOnline = ble_info.get("isAiOnline",None)
 
                     # 处理空字符串或None
                     if lon_raw not in (None, ""):
@@ -186,8 +183,8 @@ class ConnectionHandler:
                             self.lat = None
                 except json.JSONDecodeError:
                     pass
-            #self.lon = 119.30
-            #self.lat = 26.08
+            #self.lon = -0.13
+            #self.lat = 51.51
             self.logger.bind(tag=TAG).error(f"经度：{self.lon},纬度：{self.lat}")
             #这里是授权校验 暂时注释不发版本
             if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
@@ -306,7 +303,7 @@ class ConnectionHandler:
 
             try:
                 async for message in self.websocket:
-                    #print(f"[WebSocket] 收到消息: type={type(message)}, len={len(message) if isinstance(message, bytes) else '-'}")
+                    # print(f"[WebSocket] 收到消息: type={type(message)}, len={len(message) if isinstance(message, bytes) else '-'}")
                     await self._route_message(message)
             except websockets.exceptions.ConnectionClosed as e:
                 self.logger.bind(tag=TAG).info("客户端断开连接")

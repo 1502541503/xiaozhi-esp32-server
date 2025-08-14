@@ -53,15 +53,20 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
         )
 
     if text is not None:
+        # short_cmd_prefixes = [
+        #     "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
+        #     "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
+        #     "开启勿扰", "视觉识别", "关闭勿扰", "停止录像", "音量调整",
+        #     "Answer the call", "Hang up the call", "Check the battery level",
+        #     "Take a photo", "Record a video", "Play some music", "Resume playing",
+        #     "Pause the music", "Previous song", "Next song", "Volume down",
+        #     "Volume up", "Restart the device", "Turn on Do Not Disturb",
+        #     "Visual recognition", "Turn off Do Not Disturb", "Stop recording"
+        # ]
         short_cmd_prefixes = [
-            "接听电话", "挂断电话", "查询电量", "拍照", "录像", "播放音乐", "继续播放",
-            "暂停播放", "上一曲", "下一曲", "减小音量", "增大音量", "重启系统",
-            "开启勿扰", "视觉识别", "关闭勿扰", "停止录像", "音量调整",
-            "Answer the call", "Hang up the call", "Check the battery level",
-            "Take a photo", "Record a video", "Play some music", "Resume playing",
-            "Pause the music", "Previous song", "Next song", "Volume down",
-            "Volume up", "Restart the device", "Turn on Do Not Disturb",
-            "Visual recognition", "Turn off Do Not Disturb", "Stop recording"
+            "0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07",
+            "0x08", "0x09", "0x10", "0x11", "0x0A", "0x0B",
+            "0x0C", "0x0D", "0x0E", "0x0F", "0x0G"
         ]
         clean_text = text.strip()
         if any(clean_text.startswith(cmd) for cmd in short_cmd_prefixes):

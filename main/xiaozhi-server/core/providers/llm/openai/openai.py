@@ -155,6 +155,7 @@ class LLMProvider(LLMProviderBase):
 
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
 
+
             stream = self.client.chat.completions.create(
                 model=model_name, messages=dialogue, stream=True, tools=functions
             )

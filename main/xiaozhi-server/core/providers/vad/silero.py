@@ -60,9 +60,9 @@ class VADProvider(VADProviderBase):
                     conn.client_voice_frame_count += 1
                 else:
                     conn.client_voice_frame_count = 0
-
+                #print(f"语音帧数：{conn.client_voice_frame_count}")
                 # 只有连续4帧检测到语音才认为有语音
-                client_have_voice = conn.client_voice_frame_count >= 4
+                client_have_voice = conn.client_voice_frame_count >= 2
 
                 # 如果之前有声音，但本次没有声音，且与上次有声音的时间差已经超过了静默阈值，则认为已经说完一句话
                 if conn.client_have_voice and not client_have_voice:

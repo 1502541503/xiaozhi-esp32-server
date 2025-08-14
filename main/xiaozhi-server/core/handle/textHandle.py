@@ -40,8 +40,10 @@ async def handleTextMessage(conn, message):
             # 需要测试能否马上停止
             #await handleAbortMessage(conn)
             # conn.audio_timeout_triggered = False
-            # conn.client_have_voice = True
-            # conn.client_voice_stop = True
+            conn.is_processing = False
+            conn.server_ready = False
+            conn.client_have_voice = True
+            #conn.client_voice_stop = True
             conn.client_abort = True
         elif msg_json["type"] == "listen":
             conn.logger.bind(tag=TAG).info(f"收到listen消息：{message}")

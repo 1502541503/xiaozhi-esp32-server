@@ -26,6 +26,8 @@ class ASRProvider(ASRProviderBase):
         self.forward_task = None
         self.is_processing = False  # 添加处理状态标志
 
+        self._voice_stop_handled = False
+
         # 配置参数
         self.appid = str(config.get("appid"))
         self.cluster = config.get("cluster")
@@ -350,3 +352,38 @@ class ASRProvider(ASRProviderBase):
                 pass
             self.forward_task = None
         self.is_processing = False
+
+    async def _cleanup(self):
+        """清理资源"""
+        print("asr清理资源")
+        self._voice_stop_handled = False
+        self.is_processing = False
+        self.server_ready = False  # 重置服务器准备状态
+        self.text = ""
+        if hasattr(self, "silence_check_task") and not self.silence_check_task.done():
+            self.silence_check_task.cancel()
+
+        if self.forward_task and not self.forward_task.done():
+            self.forward_task.cancel()
+            try:
+                await asyncio.wait_for(self.forward_task, timeout=1.0)
+            except:
+                pass
+            self.forward_task = None
+
+        if self.asr_ws:
+            try:
+                await asyncio.wait_for(self.asr_ws.close(), timeout=2.0)
+            except:
+                pass
+            self.asr_ws = None
+
+    async def safe_handle_voice_stop(self, conn, arg):
+        if self._voice_stop_handled:
+            logger.bind(tag=TAG).info("handle_voice_stop 已处理，跳过重复调用")
+            return
+        self._voice_stop_handled = True
+        await self.handle_voice_stop(conn, arg)
+        # 清理
+        self.is_processing = False
+        self.server_ready = False
