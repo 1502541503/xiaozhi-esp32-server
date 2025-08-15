@@ -30,9 +30,9 @@ public interface DeviceService extends BaseService<DeviceEntity> {
     void unbindDevice(Long userId, String deviceId);
 
     /**
-     * 设备激活
+     * 设备激活（带备注）
      */
-    Boolean deviceActivation(String agentId, String activationCode);
+    Boolean deviceActivation(String agentId, String activationCode, String remark);
 //    Boolean deviceActivation2(String agentId, String mac,Long userId);
 
     /**
@@ -89,4 +89,5 @@ public interface DeviceService extends BaseService<DeviceEntity> {
     Date getLatestLastConnectionTime(String agentId);
 
 
+    void updateRemark(String remark, String deviceCode);
 }

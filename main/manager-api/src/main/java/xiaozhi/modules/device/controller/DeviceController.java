@@ -43,22 +43,34 @@ public class DeviceController {
     @PostMapping("/bind/{agentId}/{deviceCode}")
     @Operation(summary = "绑定设备")
     @RequiresPermissions("sys:role:normal")
-        public Result<Void> bindDevice(@PathVariable String agentId, @PathVariable String deviceCode) {
-        deviceService.deviceActivation(agentId, deviceCode);
+    public Result<Void> bindDevice(
+            @PathVariable String agentId,
+            @PathVariable String deviceCode,
+            @RequestParam(value = "remark", required = false, defaultValue = "") String remark) {
+        deviceService.deviceActivation(agentId, deviceCode, remark);
         return new Result<>();
     }
 
-//    TODO:需要忽略excel首行
+
+    @PostMapping("/updateRemark/{deviceCode}")
+    @Operation(summary = "设备修改备注")
+    @RequiresPermissions("sys:role:normal")
+    public Result<Void> updateRemark(
+            @RequestParam(value = "remark") String remark,
+            @PathVariable String deviceCode) {
+        deviceService.updateRemark(remark, deviceCode);
+        return new Result<>();
+    }
+
+
+    //    TODO:需要忽略excel首行
     @PostMapping("/bind/batch")
     @Operation(summary = "批量绑定设备")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> batchBindDevices(
             @RequestParam("agentId") String agentId,
+            @RequestParam(value = "remark", required = false, defaultValue = "") String remark,
             @RequestParam("file") MultipartFile file) {
-
-        if (StringUtils.isBlank(agentId)) {
-            return new Result<Void>().error(ErrorCode.NOT_NULL, "agentId不能为空");
-        }
 
         if (file == null || file.isEmpty()) {
             return new Result<Void>().error(ErrorCode.NOT_NULL, "文件不能为空");
@@ -69,6 +81,7 @@ public class DeviceController {
             List<String> deviceCodes = new ArrayList<>();
             EasyExcel.read(file.getInputStream(), DeviceCodeData.class, new DeviceCodeReadListener(deviceCodes, 5000))
                     .sheet()
+                    .headRowNumber(0) // 设置表头行数为0，这样第一行就会被当作数据处理
                     .doRead();
 
             if (deviceCodes.isEmpty()) {
@@ -78,7 +91,7 @@ public class DeviceController {
             // 批量绑定设备
             for (String deviceCode : deviceCodes) {
                 try {
-                    deviceService.deviceActivation(agentId, deviceCode);
+                    deviceService.deviceActivation(agentId, deviceCode, remark);
                 } catch (Exception e) {
                     // 记录错误但继续处理其他设备
                     e.printStackTrace();

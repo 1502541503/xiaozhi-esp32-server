@@ -94,7 +94,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 //        if (cacheMap == null) {
 //            throw new RenException("激活码错误");
 //        }
-////        String cachedCode = (String) cacheMap.get("activation_code");
+
+    /// /        String cachedCode = (String) cacheMap.get("activation_code");
 //        String cachedCode = "837765";
 //        if (!activationCode.equals(cachedCode)) {
 //            throw new RenException("激活码错误");
@@ -133,9 +134,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 //        redisUtils.delete(deviceKey);
 //        return true;
 //    }
-
     @Override
-    public Boolean deviceActivation(String agentId, String mac) {
+    public Boolean deviceActivation(String agentId, String mac, String remark) {
         UserDetail user = SecurityUser.getUser();
         if (user.getId() == null) {
             throw new RenException("用户未登录");
@@ -154,9 +154,11 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         deviceEntity.setUpdater(user.getId());
         deviceEntity.setUpdateDate(currentTime);
         deviceEntity.setLastConnectedAt(currentTime);
+        deviceEntity.setRemark(remark); // 添加备注字段
         deviceDao.insert(deviceEntity);
         return true;
     }
+
 
     @Override
     public DeviceReportRespDTO checkDeviceActive(String macAddress, String clientId,
@@ -324,6 +326,22 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             redisUtils.set(RedisKeys.getAgentDeviceLastConnectedAtById(agentId), maxDate);
         }
         return maxDate;
+    }
+
+    @Override
+    public void updateRemark(String remark, String deviceCode) {
+        if (StringUtils.isBlank(deviceCode)) {
+            throw new RenException("设备编码不能为空");
+        }
+
+        UpdateWrapper<DeviceEntity> wrapper = new UpdateWrapper<>();
+        wrapper.eq("id", deviceCode);
+        wrapper.set("remark", remark);
+
+        int result = deviceDao.update(null, wrapper);
+        if (result == 0) {
+            throw new RenException("设备不存在或更新失败");
+        }
     }
 
     private String getDeviceCacheKey(String deviceId) {
