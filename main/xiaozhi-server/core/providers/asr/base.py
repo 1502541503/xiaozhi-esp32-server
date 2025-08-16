@@ -126,7 +126,7 @@ class ASRProviderBase(ABC):
             conn.logger.bind(tag=TAG).warning("识别结果太短，跳过对话处理")
             return
         raw_text, _ = await self.speech_to_text(
-            asr_audio_task, conn.session_id, conn.audio_format, conn.headers.get("accept-language", "zh")
+            asr_audio_task, conn.session_id, conn.audio_format
         )  # 确保ASR模块返回原始文本
 
         conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
@@ -195,7 +195,7 @@ class ASRProviderBase(ABC):
 
     @abstractmethod
     async def speech_to_text(
-            self, opus_data: List[bytes], session_id: str, audio_format="opus", language: str = None
+            self, opus_data: List[bytes], session_id: str, audio_format="opus"
     ) -> Tuple[Optional[str], Optional[str]]:
         """将语音数据转换为文本"""
         pass

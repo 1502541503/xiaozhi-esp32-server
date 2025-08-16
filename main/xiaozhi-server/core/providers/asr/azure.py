@@ -3,6 +3,7 @@ from typing import List
 from core.providers.asr.base import ASRProviderBase
 from config.logger import setup_logging
 from core.utils.util import _parse_accept_language
+from core.providers.asr.dto.dto import InterfaceType
 
 import azure.cognitiveservices.speech as speechsdk
 
@@ -18,6 +19,8 @@ class ASRProvider(ASRProviderBase):
         super().__init__()
         self.config = config
         self.delete_audio_file = delete_audio_file
+        self.interface_type = InterfaceType.NON_STREAM
+        self.headers = None
 
         # 基础配置初始化
         self.api_key = config.get("api_key")
@@ -44,6 +47,18 @@ class ASRProvider(ASRProviderBase):
             'uk-UA', 'ur-IN', 'uz-UZ', 'vi-VN', 'uu-CN', 'ue-CN', 'zh-CN', 'zu-ZA'
         ]
 
+    def init_headers(self, headers):
+        self.headers = headers
+        language = self.headers.get("accept-language", "zh")
+        if self.recognizer is None:
+            target_lang = self.find_first_matching_lang(language)
+            logger.bind(tag=TAG).info(f"最终识别语言: {target_lang}")
+            # 初始化识别器
+            self.recognizer = speechsdk.SpeechRecognizer(speech_config=self.speech_config,
+                                                         audio_config=self.audio_config,
+                                                         language=target_lang
+                                                         )
+
     def find_first_matching_lang(self, lang_code):
 
         logger.bind(tag=TAG).info(f"获取客户端源语言: {lang_code}")
@@ -55,56 +70,39 @@ class ASRProvider(ASRProviderBase):
                 return code
         return 'zh-CN'
 
-    async def speech_to_text(self, opus_data, session_id, audio_format,language: str = None):
+    async def speech_to_text(self, opus_data, session_id, audio_format):
+        try:
+            # 1. 解码为 PCM
+            if audio_format == "pcm":
+                pcm_data = opus_data
+            else:
+                pcm_data = self.decode_opus(opus_data)
+            combined_pcm_data = b"".join(pcm_data)
 
-        target_lang = self.find_first_matching_lang(language)
+            logger.bind(tag=TAG).info(f"音频解码完成，开始识别: ")
 
-        logger.bind(tag=TAG).info(f"最终识别语言: {target_lang}")
+            self.push_stream.write(combined_pcm_data)
+            self.push_stream.close()  # 重要，通知SDK音频已写完
 
-        self.recognizer = speechsdk.SpeechRecognizer(speech_config=self.speech_config,
-                                                     audio_config=self.audio_config,
-                                                     language=target_lang
-                                                     )
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, self.recognizer.recognize_once)
 
-        """语音转文本主处理逻辑"""
-        file_path = None
-        retry_count = 0
+            if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+                logger.bind(tag=TAG).info(f"识别结果: {result.text}")
+                return result.text, None
+            elif result.reason == speechsdk.ResultReason.NoMatch:
+                logger.bind(tag=TAG).warning("音频未匹配到任何语音内容")
+                return "", None
+            elif result.reason == speechsdk.ResultReason.Canceled:
+                cancellation_details = result.cancellation_details
+                logger.bind(tag=TAG).error(f"识别被取消: {cancellation_details.reason}")
+                if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                    logger.bind(tag=TAG).error(f"错误详情: {cancellation_details.error_details}")
+                return "", None
+            else:
+                logger.bind(tag=TAG).warning(f"未知识别状态: {result.reason}")
+                return "", None
 
-        while retry_count < MAX_RETRIES:
-            try:
-                # 1. 解码为 PCM
-                if audio_format == "pcm":
-                    pcm_data = opus_data
-                else:
-                    pcm_data = self.decode_opus(opus_data)
-                combined_pcm_data = b"".join(pcm_data)
-
-                logger.bind(tag=TAG).info(f"音频解码完成，开始识别: ")
-
-                self.push_stream.write(combined_pcm_data)
-                self.push_stream.close()  # 重要，通知SDK音频已写完
-
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(None, self.recognizer.recognize_once)
-
-                if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-                    logger.bind(tag=TAG).info(f"识别结果: {result.text}")
-                    return result.text, None
-                elif result.reason == speechsdk.ResultReason.NoMatch:
-                    logger.bind(tag=TAG).warning("音频未匹配到任何语音内容")
-                    return "", None
-                elif result.reason == speechsdk.ResultReason.Canceled:
-                    cancellation_details = result.cancellation_details
-                    logger.bind(tag=TAG).error(f"识别被取消: {cancellation_details.reason}")
-                    if cancellation_details.reason == speechsdk.CancellationReason.Error:
-                        logger.bind(tag=TAG).error(f"错误详情: {cancellation_details.error_details}")
-                    return "", None
-                else:
-                    logger.bind(tag=TAG).warning(f"未知识别状态: {result.reason}")
-                    return "", None
-
-            except Exception as e:
-                logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
-                return "", file_path
-
-        return None
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
+            return ""

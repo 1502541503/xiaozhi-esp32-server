@@ -39,7 +39,6 @@ from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 from config.logger import setup_logging, build_module_string, update_module_string
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
 
-
 TAG = __name__
 
 auto_import_modules("plugins_func.functions")
@@ -51,14 +50,14 @@ class TTSException(RuntimeError):
 
 class ConnectionHandler:
     def __init__(
-        self,
-        config: Dict[str, Any],
-        _vad,
-        _asr,
-        _llm,
-        _memory,
-        _intent,
-        server=None,
+            self,
+            config: Dict[str, Any],
+            _vad,
+            _asr,
+            _llm,
+            _memory,
+            _intent,
+            server=None,
 
     ):
         self.isAiOnline = None
@@ -152,7 +151,7 @@ class ConnectionHandler:
 
         self.timeout_task = None
         self.timeout_seconds = (
-            int(self.config.get("close_connection_no_voice_time", 120)) + 60
+                int(self.config.get("close_connection_no_voice_time", 120)) + 60
         )  # 在原来第一道关闭的基础上加60秒，进行二道关闭
 
         # {"mcp":true} 表示启用MCP功能
@@ -168,7 +167,7 @@ class ConnectionHandler:
                     ble_info = json.loads(ble_info_str)
                     lon_raw = ble_info.get("longitude")
                     lat_raw = ble_info.get("latitude")
-                    self.isAiOnline = ble_info.get("isAiOnline",None)
+                    self.isAiOnline = ble_info.get("isAiOnline", None)
 
                     # 处理空字符串或None
                     if lon_raw not in (None, ""):
@@ -183,11 +182,11 @@ class ConnectionHandler:
                             self.lat = None
                 except json.JSONDecodeError:
                     pass
-            #self.lon = -0.13
-            #self.lat = 51.51
+            # self.lon = -0.13
+            # self.lat = 51.51
             self.logger.bind(tag=TAG).error(f"经度：{self.lon},纬度：{self.lat}")
-            #这里是授权校验 暂时注释不发版本
-            if self.headers.get("device-id", None ) is None or self.headers.get("authorization") is None:
+            # 这里是授权校验 暂时注释不发版本
+            if self.headers.get("device-id", None) is None or self.headers.get("authorization") is None:
                 # 尝试从 URL 的查询参数中获取 device-id
                 from urllib.parse import parse_qs, urlparse
                 # 从 WebSocket 请求中获取路径
@@ -201,7 +200,7 @@ class ConnectionHandler:
                 if "device-id" in query_params:
                     self.headers["device-id"] = query_params["device-id"][0]
                     self.headers["client-id"] = query_params["client-id"][0]
-                    #self.headers["authorization"] = query_params["authorization"][0]
+                    # self.headers["authorization"] = query_params["authorization"][0]
                     self.headers["authorization"] = query_params.get("authorization", [""])[0]
 
             # if self.headers.get("authorization") is None:
@@ -236,7 +235,7 @@ class ConnectionHandler:
                     self.logger.bind(tag=TAG).error("设备未授权")
                     await ws.send(json.dumps({
                         "type": "server",
-                         "code": "5002",
+                        "code": "5002",
                         "msg": "Mac unauthorized"
                     }))
                     await self.close(ws)
@@ -373,7 +372,7 @@ class ConnectionHandler:
             if self.asr is None:
                 return
             self.asr_audio_queue.put(message)
-                # 拼接到缓冲区
+            # 拼接到缓冲区
             # self.audio_base_buffer += message
             #
             # # 每满一个 chunk_size（如100ms）送一次识别队列
@@ -469,6 +468,11 @@ class ConnectionHandler:
             self._initialize_intent()
             """初始化上报线程"""
             self._init_report_threads()
+
+            # 确保 self.asr 有 init_headers 方法再调用
+            if hasattr(self.asr, 'init_headers') and callable(self.asr.init_headers):
+                self.asr.init_headers(self.headers)
+
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
 
@@ -752,7 +756,8 @@ class ConnectionHandler:
 
         # Define intent functions
         functions = None
-        if self.intent_type == "function_call" and hasattr(self, "func_handler") and getattr(self.llm, "provider", "") != "AliBL":
+        if self.intent_type == "function_call" and hasattr(self, "func_handler") and getattr(self.llm, "provider",
+                                                                                             "") != "AliBL":
             functions = self.func_handler.get_functions()
         if hasattr(self, "mcp_client"):
             mcp_tools = self.mcp_client.get_available_tools()
@@ -772,7 +777,7 @@ class ConnectionHandler:
             #     )
             #     memory_str = future.result()
 
-            #uuid_str = str(uuid.uuid4()).replace("-", "")
+            # uuid_str = str(uuid.uuid4()).replace("-", "")
             self.sentence_id = str(uuid.uuid4().hex)
 
             # 构造图文混合消息（Qwen-VL 等多模态模型格式）
@@ -786,26 +791,26 @@ class ConnectionHandler:
                 }]
             else:
                 system_prompt = self.prompt
-                messages =  [{"role": "system", "content": system_prompt},{"role": "user", "content": query}]
+                messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": query}]
             start_time = time.time()
             if functions is not None and getattr(self.llm, "provider", "") != "AliBL":
                 # 使用支持functions的streaming接口
                 print(f"进入====：2.{imgurl}，本次提问的是:{query}")
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(lon = self.lon,lat = self.lat ,memory_str = memory_str),
+                    self.dialogue.get_llm_dialogue_with_memory(lon=self.lon, lat=self.lat, memory_str=memory_str),
                     functions=functions,
                     imgUrl=imgurl,
                 )
                 print(f"问答结束=={llm_responses}")
-                #判断如果本轮次是视觉识别，清除掉非系统会话记忆，防止会话异常
+                # 判断如果本轮次是视觉识别，清除掉非系统会话记忆，防止会话异常
                 if imgurl:
                     self.dialogue.clear_user_msg()
 
             else:
                 if getattr(self.llm, "provider", "") == "AliBL":
                     llm_responses = self.llm.response(
-                        self.session_id, messages,imgurl
+                        self.session_id, messages, imgurl
                     )
                 else:
                     print(f"进入====：1,llm:{self.llm}")
@@ -855,7 +860,6 @@ class ConnectionHandler:
                 if not tool_call_flag:
                     response_message.append(content)
                     if text_index == 0:
-
                         elapsed = time.time() - start_time
                         self.logger.bind(tag=TAG).info(f"问答耗时：{elapsed:.3f} 秒.回答={content}")
                         asyncio.run_coroutine_threadsafe(
@@ -926,7 +930,7 @@ class ConnectionHandler:
                 if self.mcp_manager.is_mcp_tool(function_name):
                     result = self._handle_mcp_tool_call(function_call_data)
                 elif hasattr(self, "mcp_client") and self.mcp_client.has_tool(
-                    function_name
+                        function_name
                 ):
                     # 如果是小智端MCP工具调用
                     self.logger.bind(tag=TAG).debug(
@@ -1131,7 +1135,6 @@ class ConnectionHandler:
             elif self.websocket:
                 await self.websocket.close()
 
-
             # 最后关闭线程池（避免阻塞）
             if self.executor:
                 self.executor.shutdown(wait=False)
@@ -1172,6 +1175,10 @@ class ConnectionHandler:
         self.client_have_voice_last_time = 0
         self.client_voice_stop = False
         self.logger.bind(tag=TAG).debug("VAD states reset.")
+
+    def clear_asr(self):
+        self.asr_audio = []
+        self.asr_audio_queue = queue.Queue()
 
     def chat_and_close(self, text):
         """Chat with the user and then close the connection"""

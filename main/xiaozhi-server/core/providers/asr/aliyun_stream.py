@@ -303,7 +303,7 @@ class ASRProvider(ASRProviderBase):
             self.asr_ws = None
 
 
-    async def speech_to_text(self, opus_data, session_id, audio_format,language: str = None):
+    async def speech_to_text(self, opus_data, session_id, audio_format):
         """获取识别结果"""
         result = self.text
         self.text = ""
