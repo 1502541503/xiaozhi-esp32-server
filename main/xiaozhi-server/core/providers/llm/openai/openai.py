@@ -11,6 +11,7 @@ logger = setup_logging()
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
 
+        self.isAiOnline = None
         print("图像识别 openai：", "111")
 
         self.model_name = config.get("model_name")
@@ -121,7 +122,7 @@ class LLMProvider(LLMProviderBase):
                         break  # 找到就替换，无需再判断后面的
 
             logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},modelname:{model_name}")
-            logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
+            #logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
 
             if imgUrl:
 
@@ -134,7 +135,7 @@ class LLMProvider(LLMProviderBase):
                 for i in range(len(dialogue) - 1, -1, -1):
                     if dialogue[i].get("role") == "user":
                         original_text = dialogue[i].get("content", "")
-                        if not original_text or not original_text.strip():
+                        if not original_text or not original_text.strip() or original_text=="我眼前的是什么？":
                             original_text = self.default_vllm_user_msg  # 默认文本
                         break
 
@@ -152,13 +153,26 @@ class LLMProvider(LLMProviderBase):
                         ]
                     }
                 ]
+            # elif self.isAiOnline == True:
+            #     stream = self.client.chat.completions.create(
+            #         model=model_name, messages=dialogue, stream=True, tools=functions,
+            #         extra_body={"enable_search": True}
+            #     )
+
+            params = {
+                "model": model_name,
+                "messages": dialogue,
+                "stream": True,
+                "tools": functions
+            }
+
+            print(f"开启联网搜索:{self.isAiOnline}")
+            if self.isAiOnline is True and not imgUrl:
+                params["extra_body"] = {"enable_search": True}
 
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
+            stream = self.client.chat.completions.create(**params)
 
-
-            stream = self.client.chat.completions.create(
-                model=model_name, messages=dialogue, stream=True, tools=functions
-            )
 
             for chunk in stream:
                 # 检查是否存在有效的choice且content不为空

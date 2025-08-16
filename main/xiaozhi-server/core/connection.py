@@ -150,8 +150,9 @@ class ConnectionHandler:
         self.intent_type = "nointent"
 
         self.timeout_task = None
+        #无语音输入断开连接时间(秒)调整为1800s
         self.timeout_seconds = (
-                int(self.config.get("close_connection_no_voice_time", 120)) + 60
+            int(self.config.get("close_connection_no_voice_time", 1600)) + 60
         )  # 在原来第一道关闭的基础上加60秒，进行二道关闭
 
         # {"mcp":true} 表示启用MCP功能
@@ -160,7 +161,7 @@ class ConnectionHandler:
     async def handle_connection(self, ws):
         try:
             self.headers = dict(ws.request.headers)
-
+            print(f"过期时间为{self.timeout_seconds}")
             ble_info_str = self.headers.get("BleInfo") or self.headers.get("bleinfo")
             if ble_info_str:
                 try:
@@ -169,6 +170,7 @@ class ConnectionHandler:
                     lat_raw = ble_info.get("latitude")
                     self.isAiOnline = ble_info.get("isAiOnline", None)
 
+                    print(f"是否开启联网搜索{self.isAiOnline}")
                     # 处理空字符串或None
                     if lon_raw not in (None, ""):
                         try:
@@ -796,11 +798,12 @@ class ConnectionHandler:
             if functions is not None and getattr(self.llm, "provider", "") != "AliBL":
                 # 使用支持functions的streaming接口
                 print(f"进入====：2.{imgurl}，本次提问的是:{query}")
+                self.llm.isAiOnline = self.isAiOnline
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
                     self.dialogue.get_llm_dialogue_with_memory(lon=self.lon, lat=self.lat, memory_str=memory_str),
                     functions=functions,
-                    imgUrl=imgurl,
+                    imgUrl=imgurl
                 )
                 print(f"问答结束=={llm_responses}")
                 # 判断如果本轮次是视觉识别，清除掉非系统会话记忆，防止会话异常
