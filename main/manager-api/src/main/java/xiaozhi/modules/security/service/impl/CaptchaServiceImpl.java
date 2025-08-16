@@ -51,7 +51,7 @@ public class CaptchaServiceImpl implements CaptchaService {
 
         // 生成验证码
         SpecCaptcha captcha = new SpecCaptcha(150, 40);
-        captcha.setLen(5);
+        captcha.setLen(4);
         captcha.setCharType(Captcha.TYPE_DEFAULT);
         captcha.out(response.getOutputStream());
 
