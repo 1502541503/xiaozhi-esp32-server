@@ -205,28 +205,28 @@ class ConnectionHandler:
                     # self.headers["authorization"] = query_params["authorization"][0]
                     self.headers["authorization"] = query_params.get("authorization", [""])[0]
 
-            # if self.headers.get("authorization") is None:
-            #     self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
-            #     await ws.send(json.dumps({
-            #         "type": "server",
-            #         "status": "error",
-            #         "code": "5001",
-            #         "msg": "Missing authorization information, please confirm if authorization is included"
-            #     }))
-            #     await self.close(ws)
-            #     return
+            if self.headers.get("authorization") is None:
+                self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
+                await ws.send(json.dumps({
+                    "type": "server",
+                    "status": "error",
+                    "code": "5001",
+                    "msg": "Missing authorization information, please confirm if authorization is included"
+                }))
+                await self.close(ws)
+                return
             try:
                 expected_token = "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj"
-                # auth_header = self.headers.get("authorization")
-                # if not auth_header or auth_header.strip() != expected_token:
-                #     await ws.send(json.dumps({
-                #         "type": "server",
-                #         "status": "error",
-                #         "code": "5001",
-                #         "msg": "authorization error"
-                #     }))
-                #     await self.close(ws)
-                #     return
+                auth_header = self.headers.get("authorization")
+                if not auth_header or auth_header.strip() != expected_token:
+                    await ws.send(json.dumps({
+                        "type": "server",
+                        "status": "error",
+                        "code": "5001",
+                        "msg": "authorization error"
+                    }))
+                    await self.close(ws)
+                    return
                 self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get('bleinfo')}")
                 mac_authorize = get_mac_api(
                     "",
