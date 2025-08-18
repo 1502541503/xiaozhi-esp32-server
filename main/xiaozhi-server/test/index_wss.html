@@ -72,7 +72,7 @@
             display: flex;
             align-items: center;
             gap: 20px;
-            margin-left: 20px;
+            /* margin-left: 20px; */
             padding: 0 15px;
             background-color: #f9f9f9;
             border-radius: 4px;
@@ -164,6 +164,8 @@
             background-color: white;
             flex: 1;
             margin-right: 10px;
+            display: flex;
+            flex-direction: column;
         }
 
         .message {
@@ -549,9 +551,6 @@
             <div id="scriptStatus" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
                 正在加载Opus库...
             </div>
-
-
-
             <div class="section">
                 <div class="tabs">
                     <button class="tab active" data-tab="text">文本消息</button>
@@ -590,8 +589,7 @@
                 </div>
 
             </div>
-
-            <div style="flex: 1;" class="section">
+            <div class="section" style="flex: 1;overflow: hidden;">
                 <h2>会话记录</h2>
                 <div class="flex-container">
                     <div id="conversation" class="conversation"></div>
@@ -607,7 +605,6 @@
     <script src="./libopus.js"></script>
     <!-- OSS文件服务器js文件 -->
     <script src="https://gosspublic.alicdn.com/aliyun-oss-sdk-6.22.0.min.js"></script>
-
     <script>
 
         let currentSessionId = null; // 存储当前会话ID
@@ -1577,7 +1574,6 @@
                                 // 音频控制消息
                                 log(`收到音频控制消息: ${JSON.stringify(message)}`, 'info');
                             } else if (message.type === 'stt') {
-                                ttt
                                 // 语音识别结果
                                 log(`识别结果: ${message.text}`, 'info');
                                 // 添加识别结果到会话记录
