@@ -121,7 +121,7 @@ class ASRProviderBase(ABC):
 
     # 处理语音停止
     async def handle_voice_stop(self, conn, asr_audio_task):
-        print("进入====handle_voice_stop")
+        #print("进入====handle_voice_stop")
         if asr_audio_task and len(asr_audio_task) < 10:
             conn.logger.bind(tag=TAG).warning("识别结果太短，跳过对话处理")
             return
@@ -132,8 +132,16 @@ class ASRProviderBase(ABC):
         conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
         text_len, _ = remove_punctuation_and_length(raw_text)
 
-        if text_len < 2:
+        if text_len <= 1:
             conn.logger.bind(tag=TAG).warning(f"识别结果过短（{text_len} 个字），跳过对话触发")
+            await conn.websocket.send(json.dumps(
+                {
+                    "type": "server",
+                    "code": 4003,
+                    "msg": "识别结果过短（{text_len} 个字），跳过对话触发",
+                    "session_id": conn.session_id,
+                }
+            ))
             return
 
         self.stop_ws_connection()
