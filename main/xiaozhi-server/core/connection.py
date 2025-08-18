@@ -798,7 +798,11 @@ class ConnectionHandler:
                 print(f"进入====：2.{imgurl}，本次提问的是:{query}")
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(lon=self.lon, lat=self.lat, memory_str=memory_str),
+                    self.dialogue.get_llm_dialogue_with_memory(
+                        lon=self.lon,
+                        lat=self.lat,
+                        memory_str=memory_str,
+                        lang=self.headers.get("accept-language", "zh")),
                     functions=functions,
                     imgUrl=imgurl,
                 )

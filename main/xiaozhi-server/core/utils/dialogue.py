@@ -5,12 +5,12 @@ from datetime import datetime
 
 class Message:
     def __init__(
-        self,
-        role: str,
-        content: str = None,
-        uniq_id: str = None,
-        tool_calls=None,
-        tool_call_id=None,
+            self,
+            role: str,
+            content: str = None,
+            uniq_id: str = None,
+            tool_calls=None,
+            tool_call_id=None,
     ):
         self.uniq_id = uniq_id if uniq_id is not None else str(uuid.uuid4())
         self.role = role
@@ -64,7 +64,7 @@ class Dialogue:
         self.dialogue = [msg for msg in self.dialogue if msg.role == "system"]
 
     def get_llm_dialogue_with_memory(
-        self, memory_str: str = None,lon = None,lat = None
+            self, memory_str: str = None, lon=None, lat=None, lang=None
     ) -> List[Dict[str, str]]:
         # if memory_str is None or len(memory_str) == 0:
         #     #print(f"直接返回，不记忆")
@@ -78,11 +78,13 @@ class Dialogue:
             (msg for msg in self.dialogue if msg.role == "system"), None
         )
 
-        system_content =  system_message.content
+        system_content = system_message.content
 
         # 追加角色设定-用户经纬度（用于查询用户当前天气）
         if lon and lat:
             system_content += f"\n用户所在的经纬度location：{lon},{lat}\n"
+        if lang:
+            system_content += f"\n用户使用的语言：{lang}\n"
 
         dialogue.append({"role": "system", "content": system_content})
 
