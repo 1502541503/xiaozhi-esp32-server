@@ -81,6 +81,7 @@ function sendRequest() {
         },
         'header'(header) {
             this._header = header
+            console.log('header----', header);
             return this
         },
         'showLoading'(showLoading) {
