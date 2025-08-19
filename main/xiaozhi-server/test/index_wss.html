@@ -179,7 +179,7 @@
             background-color: #e2f2ff;
             margin-left: auto;
             margin-right: 10px;
-            text-align: right;
+            /* text-align: right; */
         }
 
         .server {
@@ -1483,8 +1483,8 @@
                     connectionStatus.style.color = 'green';
 
                     // 连接成功后发送hello消息
-                    await sendHelloMessage();
-
+                    const res = await sendHelloMessage();
+                    if (!res) return
                     connectButton.textContent = '断开';
                     connectButton.removeEventListener('click', connectToServer);
                     connectButton.addEventListener('click', disconnectFromServer);
@@ -1517,7 +1517,7 @@
 
                 // 在WebSocket关闭的回调中，也移除对图片消息控件的禁用
                 websocket.onclose = () => {
-                    log('已断开连接', 'info');
+                    log('已断开连接---', 'info');
                     connectionStatus.textContent = 'ws已断开';
                     connectionStatus.style.color = 'red';
 
@@ -1669,7 +1669,6 @@
         // 断开WebSocket连接
         function disconnectFromServer() {
             if (!websocket) return;
-
             websocket.close();
             stopRecording();
         }
