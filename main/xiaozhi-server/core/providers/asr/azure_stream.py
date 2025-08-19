@@ -74,19 +74,20 @@ class ASRProvider(ASRProviderBase):
     async def open_audio_channels(self, conn):
         await super().open_audio_channels(conn)
         self.conn = conn
+        # 预初始化识别器
+        try:
+            await self._start_recognition(conn)
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"预初始化Azure流式识别失败: {str(e)}")
 
     async def receive_audio(self, conn, audio, audio_have_voice):
-
-        conn.asr_audio.append(audio)
-        conn.asr_audio = conn.asr_audio[-10:]
-        if audio_have_voice:
-            self.last_audio_time = time.time()
 
         # 如果是第一次有声音且未开始处理，则初始化识别器
         if audio_have_voice and not self.is_processing:
             try:
                 self.is_processing = True
-                await self._start_recognition(conn)
+                # 在后台线程中启动连续识别
+                await asyncio.get_event_loop().run_in_executor(None, self.recognizer.start_continuous_recognition)
             except Exception as e:
                 logger.bind(tag=TAG).error(f"启动Azure流式识别失败: {str(e)}")
                 self.is_processing = False
@@ -122,9 +123,6 @@ class ASRProvider(ASRProviderBase):
             # 启动识别
             self.result_text = ""
             self.session_started = False
-
-            # 在后台线程中启动连续识别
-            await asyncio.get_event_loop().run_in_executor(None, self.recognizer.start_continuous_recognition)
 
             logger.bind(tag=TAG).info("Azure流式语音识别已启动")
 
@@ -242,9 +240,6 @@ class ASRProvider(ASRProviderBase):
         self.result_text = ""
         await self.close()
 
-    def stop_ws_connection(self):
-        """停止连接（兼容接口）"""
-        asyncio.create_task(self._handle_voice_stop())
 
     async def safe_handle_voice_stop(self, conn, arg):
         """安全处理语音结束"""
@@ -252,6 +247,7 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).info("handle_voice_stop 已处理，跳过重复调用")
             return
         self._voice_stop_handled = True
+        self.recognizer.stop_continuous_recognition()
         await self._handle_voice_stop()
 
     def generate_audio_default_header(self):
