@@ -9,13 +9,15 @@ import asyncio
 import threading
 import traceback
 import subprocess
+from urllib.parse import urlparse, parse_qs
+
 import websockets
 from core.handle.mcpHandle import call_mcp_tool
 from core.utils.util import (
     extract_json_from_string,
     check_vad_update,
     check_asr_update,
-    filter_sensitive_info,
+    filter_sensitive_info, _parse_accept_language,
 )
 from typing import Dict, Any
 from core.mcp.manager import MCPManager
@@ -74,6 +76,7 @@ class ConnectionHandler:
 
         self.websocket = None
         self.headers = None
+        self.language = None  # 客户端语言，同时检测头部和URL中Accept-Language参数，URL优先级更高
         self.device_id = None
         self.client_ip = None
         self.client_ip_info = {}
@@ -150,16 +153,39 @@ class ConnectionHandler:
         self.intent_type = "nointent"
 
         self.timeout_task = None
-        #无语音输入断开连接时间(秒)调整为1800s
+        # 无语音输入断开连接时间(秒)调整为1800s
         self.timeout_seconds = (
-            int(self.config.get("close_connection_no_voice_time", 1600)) + 60
+                int(self.config.get("close_connection_no_voice_time", 1600)) + 60
         )  # 在原来第一道关闭的基础上加60秒，进行二道关闭
 
         # {"mcp":true} 表示启用MCP功能
         self.features = None
 
+    def init_languages(self, websocket):
+        # 1. 获取原始请求对象（websockets 库中通过 websocket.request_headers 和 path 获取）
+        headers = websocket.request.headers
+        path = websocket.request.path
+        raw_path = path  # 包含查询参数的完整路径，如：/chat?lang=zh-CN
+        #
+        # 2. 解析 URL 查询参数
+        url_parsed = urlparse(raw_path)
+        query_params = parse_qs(url_parsed.query)
+        lang_from_url = query_params.get('Accept-Language', [None])[0]  # 取第一个 lang 值
+
+        # # 3. 从 Accept-Language 头获取语言
+        lang_from_header = headers.get('Accept-Language')
+
+        # 4. 优先级：URL 参数 > HTTP 头
+        selected_language = lang_from_url if lang_from_url else lang_from_header
+
+        self.language = _parse_accept_language(selected_language)
+
+        print(f"客户端语言: {self.language}")
+
     async def handle_connection(self, ws):
         try:
+            self.init_languages(ws)
+
             self.headers = dict(ws.request.headers)
             print(f"过期时间为{self.timeout_seconds}")
             ble_info_str = self.headers.get("BleInfo") or self.headers.get("bleinfo")
@@ -474,6 +500,9 @@ class ConnectionHandler:
             # 确保 self.asr 有 init_headers 方法再调用
             if hasattr(self.asr, 'init_headers') and callable(self.asr.init_headers):
                 self.asr.init_headers(self.headers)
+
+            if hasattr(self.llm, 'init_headers') and callable(self.llm.init_headers):
+                self.llm.init_headers(self.headers)
 
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
@@ -805,7 +834,8 @@ class ConnectionHandler:
                         lon=self.lon,
                         lat=self.lat,
                         memory_str=memory_str,
-                        lang=self.headers.get("accept-language", "zh")),
+                        lang=self.language
+                    ),
                     functions=functions,
                     imgUrl=imgurl
                 )

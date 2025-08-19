@@ -11,6 +11,7 @@ logger = setup_logging()
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
 
+        self.headers = None
         self.isAiOnline = None
         print("图像识别 openai：", "111")
 
@@ -60,6 +61,13 @@ class LLMProvider(LLMProviderBase):
         - “你面前是一瓶东方树叶青柑普洱茶饮料，净含量900ml，背景中有一个键盘和一些黄色小鸭子装饰”   
         
         """
+
+    def build_vllm_system_prompt(self):
+        build_vllm_system_prompt_str = f"{self.vllm_system_prompt}"
+        if self.headers:
+            lang = self.headers.get("accept-language", "zh")
+            build_vllm_system_prompt_str += f"\n用户当前使用语言：{lang}  \n请使用用户当前使用语言回答问题。"
+        return build_vllm_system_prompt_str
 
     def response(self, session_id, dialogue, **kwargs):
         print(f"response openai：{dialogue}")
@@ -122,7 +130,7 @@ class LLMProvider(LLMProviderBase):
                         break  # 找到就替换，无需再判断后面的
 
             logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},modelname:{model_name}")
-            #logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
+            # logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
 
             if imgUrl:
 
@@ -135,7 +143,7 @@ class LLMProvider(LLMProviderBase):
                 for i in range(len(dialogue) - 1, -1, -1):
                     if dialogue[i].get("role") == "user":
                         original_text = dialogue[i].get("content", "")
-                        if not original_text or not original_text.strip() or original_text=="我眼前的是什么？":
+                        if not original_text or not original_text.strip() or original_text == "我眼前的是什么？":
                             original_text = self.default_vllm_user_msg  # 默认文本
                         break
 
@@ -143,7 +151,7 @@ class LLMProvider(LLMProviderBase):
                 dialogue = [
                     {
                         "role": "system",
-                        "content": self.vllm_system_prompt
+                        "content": self.build_vllm_system_prompt()
                     },
                     {
                         "role": "user",
@@ -173,7 +181,6 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
             stream = self.client.chat.completions.create(**params)
 
-
             for chunk in stream:
                 # 检查是否存在有效的choice且content不为空
                 if getattr(chunk, "choices", None):
@@ -190,3 +197,6 @@ class LLMProvider(LLMProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"问答异常: {e}")
             yield f"【抱歉，服务器开小差，请再次尝试】", None
+
+    def init_headers(self, headers):
+        self.headers = headers

@@ -11,6 +11,7 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
+        self.headers = None
         self.deployment_name = config.get("deployment_name")  # Azure 使用 deployment 名称
         self.api_key = config.get("api_key")
         self.endpoint = config.get("end_point")  # Azure 特定 endpoint
@@ -62,6 +63,14 @@ class LLMProvider(LLMProviderBase):
             api_key=self.api_key,
             timeout=httpx.Timeout(self.timeout)
         )
+
+    def build_vllm_system_prompt(self):
+        build_vllm_system_prompt_str = f"{self.vllm_system_prompt}"
+        if self.headers:
+            lang = self.headers.get("accept-language", "zh")
+            build_vllm_system_prompt_str += f"\n用户当前使用语言：{lang}  \n请使用用户当前使用语言回答问题。"
+
+        return build_vllm_system_prompt_str
 
     def response(self, session_id, dialogue, **kwargs):
         try:
@@ -161,7 +170,7 @@ class LLMProvider(LLMProviderBase):
         dialogue = [
             {
                 "role": "system",
-                "content": self.vllm_system_prompt
+                "content": self.build_vllm_system_prompt()
             },
             {
                 "role": "user",
@@ -173,3 +182,6 @@ class LLMProvider(LLMProviderBase):
         ]
 
         return dialogue
+
+    def init_headers(self, headers):
+        self.headers = headers

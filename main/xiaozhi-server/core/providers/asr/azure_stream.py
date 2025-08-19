@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import Optional
 import azure.cognitiveservices.speech as speechsdk
 from core.providers.asr.base import ASRProviderBase
@@ -17,6 +18,7 @@ logger = setup_logging()
 class ASRProvider(ASRProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__()
+        self.last_audio_time = None
         self.interface_type = InterfaceType.STREAM
         self.config = config
         self.delete_audio_file = delete_audio_file
@@ -74,6 +76,12 @@ class ASRProvider(ASRProviderBase):
         self.conn = conn
 
     async def receive_audio(self, conn, audio, audio_have_voice):
+
+        conn.asr_audio.append(audio)
+        conn.asr_audio = conn.asr_audio[-10:]
+        if audio_have_voice:
+            self.last_audio_time = time.time()
+
         # 如果是第一次有声音且未开始处理，则初始化识别器
         if audio_have_voice and not self.is_processing:
             try:
@@ -95,7 +103,7 @@ class ASRProvider(ASRProviderBase):
     async def _start_recognition(self, conn):
         """启动Azure流式语音识别"""
         try:
-            target_lang = self.find_first_matching_lang(conn.headers.get("accept-language", "zh"))
+            target_lang = self.find_first_matching_lang(conn.language)
             logger.bind(tag=TAG).info(f"最终识别语言: {target_lang}")
             # 创建识别器
             self.recognizer = speechsdk.SpeechRecognizer(

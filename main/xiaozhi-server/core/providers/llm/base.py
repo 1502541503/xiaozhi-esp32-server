@@ -4,6 +4,7 @@ from config.logger import setup_logging
 TAG = __name__
 logger = setup_logging()
 
+
 class LLMProviderBase(ABC):
     @abstractmethod
     def response(self, session_id, dialogue):
@@ -26,7 +27,7 @@ class LLMProviderBase(ABC):
         except Exception as e:
             logger.bind(tag=TAG).error(f"Error in Ollama response generation: {e}")
             return "【LLM服务响应异常】"
-    
+
     def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         """
         Default implementation for function calling (streaming)
@@ -38,3 +39,5 @@ class LLMProviderBase(ABC):
         for token in self.response(session_id, dialogue):
             yield token, None
 
+    def init_headers(self, headers):
+        pass
