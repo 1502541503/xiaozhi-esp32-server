@@ -535,6 +535,14 @@
                 <div style="display: flex;gap: 20px;">
                     <!--                        <input type="text" id="otaUrl" value="https://ai-dev.iot-solution.net/xiaozhi/ota/"-->
                     <!--                            placeholder="OTA服务器地址" />-->
+                    <label for="serverSelect">环境选择:</label>
+                    <select id="serverSelect" onchange="document.getElementById('serverUrl').value=this.value">
+                        <option value="ws://127.0.0.1:8000/xiaozhi/v1/" selected>本地环境</option>
+                        <option value="wss://ai-dev.iot-solution.net/xiaozhi/v1/">dev环境</option>
+                        <option value="wss://ai-c.iot-solution.net/xiaozhi/v1/">生产环境</option>
+                    </select>
+
+
                     <input type="text" id="serverUrl" value="ws://127.0.0.1:8000/xiaozhi/v1/"
                            placeholder="WebSocket服务器地址"/>
                 </div>
@@ -542,7 +550,6 @@
                     <button id="connectButton">连接</button>
                     <button id="authTestButton" style="display: none">测试认证</button>
                 </div>
-
 
                 <!--            <input type="text" id="otaUrl" value="https://ai-c.iot-solution.net/xiaozhi/ota/"-->
                 <!--                   placeholder="OTA服务器地址"/>-->
