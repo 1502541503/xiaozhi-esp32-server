@@ -2,6 +2,8 @@ import asyncio
 import time
 from typing import Optional
 import azure.cognitiveservices.speech as speechsdk
+from numba.core.cgutils import printf
+
 from core.providers.asr.base import ASRProviderBase
 from config.logger import setup_logging
 from core.providers.asr.dto.dto import InterfaceType
@@ -22,8 +24,11 @@ class ASRProvider(ASRProviderBase):
         self.interface_type = InterfaceType.STREAM
         self.config = config
         self.delete_audio_file = delete_audio_file
+
         self.is_processing = False
-        self._voice_stop_handled = False
+        self.server_ready = False  # 服务器准备状态
+        self.audio_buffer = []  # 音频数据缓冲区
+
         self.conn = None
 
         # Azure配置参数
@@ -76,33 +81,47 @@ class ASRProvider(ASRProviderBase):
         self.conn = conn
         # 预初始化识别器
         try:
-            await self._start_recognition(conn)
+            await self._init_recognition(conn)
         except Exception as e:
             logger.bind(tag=TAG).error(f"预初始化Azure流式识别失败: {str(e)}")
 
     async def receive_audio(self, conn, audio, audio_have_voice):
 
-        # 如果是第一次有声音且未开始处理，则初始化识别器
+        # 如果有语音且未开始处理，启动识别
         if audio_have_voice and not self.is_processing:
             try:
                 self.is_processing = True
+                # 先缓冲当前音频
+                self.audio_buffer.append(audio)
                 # 在后台线程中启动连续识别
-                await asyncio.get_event_loop().run_in_executor(None, self.recognizer.start_continuous_recognition)
+                await self._start_recognition(conn)
             except Exception as e:
                 logger.bind(tag=TAG).error(f"启动Azure流式识别失败: {str(e)}")
                 self.is_processing = False
+                self.audio_buffer = []  # 清空缓冲区
                 return
 
-        # 发送音频数据到流
-        if self.is_processing and self.push_stream:
+        # 如果已经开始处理但服务器还未准备好，缓冲音频
+        elif self.is_processing and not self.server_ready:
+            self.audio_buffer.append(audio)
+            if len(self.audio_buffer) > 100:  # 限制缓冲区大小
+                self.audio_buffer.pop(0)
+
+        # 服务器准备好后直接发送音频
+        elif self.is_processing and self.push_stream and self.server_ready:
             try:
                 pcm_frame = self.decoder.decode(audio, 960)
                 self.push_stream.write(bytes(pcm_frame))
             except Exception as e:
                 logger.bind(tag=TAG).info(f"发送音频数据时发生错误: {e}")
+                await self._cleanup()
 
-    async def _start_recognition(self, conn):
-        """启动Azure流式语音识别"""
+        # 更新最后音频时间
+        if audio_have_voice:
+            self.last_audio_time = time.time()
+
+    async def _init_recognition(self, conn):
+        """初始化Azure流式语音识别"""
         try:
             target_lang = self.find_first_matching_lang(conn.language)
             logger.bind(tag=TAG).info(f"最终识别语言: {target_lang}")
@@ -120,11 +139,24 @@ class ASRProvider(ASRProviderBase):
             self.recognizer.session_stopped.connect(self._on_session_stopped)
             self.recognizer.canceled.connect(self._on_canceled)
 
+            self.recognizer.start_continuous_recognition()
+
+            logger.bind(tag=TAG).info("Azure流式语音识别初始化已完成...")
+
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"启动Azure流式识别时出错: {str(e)}")
+            raise
+
+    async def _start_recognition(self, conn):
+        """启动Azure流式语音识别"""
+        try:
             # 启动识别
             self.result_text = ""
             self.session_started = False
+            self.is_processing = True
+            self.server_ready = True  # 等待会话真正开始后再设为True
 
-            logger.bind(tag=TAG).info("Azure流式语音识别已启动")
+            logger.bind(tag=TAG).info("Azure流式语音识别已开始...")
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"启动Azure流式识别时出错: {str(e)}")
@@ -170,12 +202,24 @@ class ASRProvider(ASRProviderBase):
     def _on_session_started(self, evt: speechsdk.SessionEventArgs):
         """会话开始事件"""
         self.session_started = True
+        self.server_ready = True
         logger.bind(tag=TAG).info("Azure语音识别会话已开始")
+        
+        # 发送缓冲的音频数据
+        if self.audio_buffer:
+            logger.bind(tag=TAG).info(f"发送缓冲的音频数据，共{len(self.audio_buffer)}帧")
+            for audio in self.audio_buffer:
+                try:
+                    pcm_frame = self.decoder.decode(audio, 960)
+                    self.push_stream.write(bytes(pcm_frame))
+                except Exception as e:
+                    logger.bind(tag=TAG).info(f"发送缓冲音频数据时发生错误: {e}")
+            self.audio_buffer = []  # 清空缓冲区
 
     def _on_session_stopped(self, evt: speechsdk.SessionEventArgs):
         """会话停止事件"""
-        self.is_processing = False
         logger.bind(tag=TAG).info("Azure语音识别会话已停止")
+        self._cleanup()
 
     def _on_canceled(self, evt: speechsdk.SpeechRecognitionCanceledEventArgs):
         """识别取消事件"""
@@ -184,28 +228,13 @@ class ASRProvider(ASRProviderBase):
         logger.bind(tag=TAG).error(f"错误详情: {cancellation_details.error_details}")
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             logger.bind(tag=TAG).error(f"错误详情: {cancellation_details.error_details}")
-        self.is_processing = False
+        # self.is_processing = False
 
     async def _handle_voice_stop(self):
-
-        """处理语音结束"""
-        # if self._voice_stop_handled:
-        #     logger.bind(tag=TAG).info("handle_voice_stop 已处理，跳过重复调用")
-        #     return
-
-        self._voice_stop_handled = True
-
-        # 停止连续识别
-        if self.recognizer:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self.recognizer.stop_continuous_recognition)
-
-        # 处理识别结果
-        if self.conn:
-            self.conn.reset_vad_states()
-            await self.handle_voice_stop(self.conn, None)
-
         self.is_processing = False
+        self.server_ready = False  # 服务器准备状态
+        await self.handle_voice_stop(self.conn, None)
+
 
     async def speech_to_text(self, opus_data, session_id, audio_format):
         """获取识别结果"""
@@ -235,20 +264,10 @@ class ASRProvider(ASRProviderBase):
     async def _cleanup(self):
         """清理资源"""
         logger.bind(tag=TAG).info("清理Azure ASR资源")
-        self._voice_stop_handled = False
         self.is_processing = False
+        self.server_ready = False  # 重置服务器准备状态
         self.result_text = ""
         await self.close()
-
-
-    async def safe_handle_voice_stop(self, conn, arg):
-        """安全处理语音结束"""
-        if self._voice_stop_handled:
-            logger.bind(tag=TAG).info("handle_voice_stop 已处理，跳过重复调用")
-            return
-        self._voice_stop_handled = True
-        self.recognizer.stop_continuous_recognition()
-        await self._handle_voice_stop()
 
     def generate_audio_default_header(self):
         return self.generate_header(

@@ -26,9 +26,9 @@ async def handleAudioMessage(conn, audio):
             conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
         return
 
-    if have_voice:
-        if conn.client_is_speaking:
-            conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
+    # if have_voice:
+        # if conn.client_is_speaking:
+            # conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
             #await handleAbortMessage(conn)
     # 设备长时间空闲检测，用于say goodbye
     #await no_voice_close_connect(conn, have_voice)

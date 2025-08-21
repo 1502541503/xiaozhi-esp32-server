@@ -508,6 +508,13 @@
                         </select>
                     </div>
                     <div class="config-item">
+                        <label for="audioModelSelect">语音模式选择:</label>
+                        <select id="audioModelSelect">
+                            <option value="auto">auto</option>
+                            <option value="manual">manual</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
                         <label for="deviceName">设备名称:</label>
                         <input type="text" id="deviceName" value="Web测试设备" placeholder="设备名称">
                     </div>
@@ -565,6 +572,7 @@
         <div id="scriptStatus" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
             正在加载Opus库...
         </div>
+
         <div class="section">
             <div class="tabs">
                 <button class="tab active" data-tab="text">文本消息</button>
@@ -601,8 +609,8 @@
                     <button id="sendImageButton">发送</button>
                 </div>
             </div>
-
         </div>
+
         <div class="section" style="flex: 1;overflow: hidden;">
             <h2>会话记录</h2>
             <div class="flex-container">
@@ -1700,7 +1708,7 @@
             // 直接发送listen消息，不需要重复发送hello
             const listenMessage = {
                 type: 'listen',
-                mode: 'manual',
+                mode: document.getElementById('audioModelSelect').value,
                 state: 'detect',
                 session_id: currentSessionId,
                 text: message
@@ -2516,7 +2524,7 @@
                 // 使用与服务端期望的listen消息格式
                 const listenMessage = {
                     type: 'listen',
-                    mode: 'manual',  // 使用手动模式，由我们控制开始/停止
+                    mode: document.getElementById('audioModelSelect').value,  // 使用手动模式，由我们控制开始/停止
                     state: 'start'   // 表示开始录音
                 };
                 log(`发送录音开始消息: ${JSON.stringify(listenMessage)}`, 'info');
@@ -2602,7 +2610,7 @@
                 // 发送监听结束消息
                 const stopMessage = {
                     type: 'listen',
-                    mode: 'manual',
+                    mode: document.getElementById('audioModelSelect').value,
                     state: 'stop'
                 };
 
