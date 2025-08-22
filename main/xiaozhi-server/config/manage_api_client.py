@@ -210,6 +210,28 @@ def get_mac(
     else:
         return None
 
+# 检查是否授权
+# 检查是否授权
+def checkAuth(bleInfo) -> bool:
+    """
+    检查设备授权状态
+    :param bleInfo: 包含设备信息的JSON对象数据
+    :return: 授权成功返回设备信息，否则返回None
+    """
+    try:
+        response = ManageApiClient._instance._execute_request2(
+            "POST",
+            "/ota/checkAuth",
+            json=bleInfo,  # 直接传递整个bleInfo对象作为请求体
+        )
+        # 由于Java接口返回ResponseEntity<Boolean>，response中data字段为布尔值
+        # 如果授权成功（True），返回原始bleInfo或其他有用信息
+        # 如果授权失败（False），返回None
+        return response
+    except Exception as e:
+        print(f"设备授权检查失败: {e}")
+        return None
+
 
 
 
