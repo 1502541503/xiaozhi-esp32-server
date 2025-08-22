@@ -39,7 +39,7 @@ from core.auth import AuthMiddleware, AuthenticationError
 from config.config_loader import get_private_config_from_api, get_mac_api
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 from config.logger import setup_logging, build_module_string, update_module_string
-from config.manage_api_client import DeviceNotFoundException, DeviceBindException
+from config.manage_api_client import DeviceNotFoundException, DeviceBindException, checkAuth
 
 TAG = __name__
 
@@ -245,26 +245,24 @@ class ConnectionHandler:
                 expected_token = "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj"
                 auth_header = self.headers.get("authorization")
                 if not auth_header or auth_header.strip() != expected_token:
-                    await ws.send(json.dumps({
-                        "type": "server",
-                        "status": "error",
-                        "code": "5001",
-                        "msg": "authorization error"
-                    }))
-                    await self.close(ws)
-                    return
-                self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get('bleinfo')}")
-                mac_authorize = get_mac_api(
-                    "",
-                    self.headers.get("device-id"),
-                )
+                        await ws.send(json.dumps({
+                            "type": "server",
+                            "status": "error",
+                            "code": "5001",
+                            "msg": "authorization error"
+                        }))
+                        await self.close(ws)
+                        return
 
-                if not mac_authorize:
+                self.logger.bind(tag=TAG).info(f"设备信息: {self.headers.get('bleinfo')}")
+                auth_flag = checkAuth(ble_info_str)
+
+                if not auth_flag or auth_flag is False:
                     self.logger.bind(tag=TAG).error("设备未授权")
                     await ws.send(json.dumps({
                         "type": "server",
                         "code": "5002",
-                        "msg": "Mac unauthorized"
+                        "msg": "unauthorized"
                     }))
                     await self.close(ws)
                     return
