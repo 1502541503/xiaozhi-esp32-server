@@ -64,6 +64,7 @@ class FunctionHandler:
         self.function_registry.register_function("get_time")
         self.function_registry.register_function("get_lunar")
         self.function_registry.register_function("get_weather")
+        #self.function_registry.register_function("get_periphery")
         lang = _parse_accept_language(self.conn.headers.get("accept-language", "zh")).lower()
         # if "," in lang:
         #     lang = lang.split(",")[0]

@@ -1700,7 +1700,7 @@
             // 直接发送listen消息，不需要重复发送hello
             const listenMessage = {
                 type: 'listen',
-                mode: 'manual',
+                mode: 'auto',
                 state: 'detect',
                 session_id: currentSessionId,
                 text: message
@@ -2516,7 +2516,7 @@
                 // 使用与服务端期望的listen消息格式
                 const listenMessage = {
                     type: 'listen',
-                    mode: 'manual',  // 使用手动模式，由我们控制开始/停止
+                    mode: 'auto',  // 使用手动模式，由我们控制开始/停止
                     state: 'start'   // 表示开始录音
                 };
                 log(`发送录音开始消息: ${JSON.stringify(listenMessage)}`, 'info');
@@ -2599,10 +2599,10 @@
                 const emptyOpusFrame = new Uint8Array(0);
                 websocket.send(emptyOpusFrame);
 
-                // 发送监听结束消息
+                // 发送监听结束消息manual
                 const stopMessage = {
                     type: 'listen',
-                    mode: 'manual',
+                    mode: 'auto',
                     state: 'stop'
                 };
 
