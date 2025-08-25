@@ -153,15 +153,23 @@ class WebSocketServer:
                 pass
             self.active_connections.discard(handler)
             current_connections = len(self.active_connections)
+            # 从connected集合中移除连接
+            connected.discard(websocket)
             self.logger.bind(tag=TAG).info(f"连接已释放，当前活跃连接数: {current_connections}")
 
     async def _connection_timeout(self, websocket):
         """连接超时处理"""
         try:
             await asyncio.sleep(self.connection_timeout)
-            if not websocket.closed:
+            # 尝试通过ping来检查连接是否仍然活跃，如果失败则认为连接已关闭
+            try:
+                await websocket.ping()
+                # 如果ping成功，则关闭连接
                 self.logger.bind(tag=TAG).warning(f"连接超时 ({self.connection_timeout}秒)，关闭连接")
                 await websocket.close(code=1000, reason="Connection timeout")
+            except Exception:
+                # 如果ping失败，说明连接已经关闭，无需操作
+                pass
         except asyncio.CancelledError:
             # 任务被取消时正常退出
             pass
