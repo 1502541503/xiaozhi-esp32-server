@@ -9,7 +9,6 @@ import requests
 import websockets
 import opuslib_next
 import random
-from typing import Optional, Tuple, List
 from urllib import parse
 from datetime import datetime
 from config.logger import setup_logging
@@ -125,7 +124,7 @@ class ASRProvider(ASRProviderBase):
     async def receive_audio(self, conn, audio, audio_have_voice):
         #print(f"进入阿里流式receive_audio。audio_have_voice={audio_have_voice}.self.is_processing={self.is_processing}")
         conn.asr_audio.append(audio)
-        conn.asr_audio = conn.asr_audio[-100:]
+        conn.asr_audio = conn.asr_audio[-50:]
         if audio_have_voice:
             self.last_audio_time = time.time()
 
@@ -227,22 +226,24 @@ class ASRProvider(ASRProviderBase):
 
                         # 发送缓存音频
                         if conn.asr_audio:
-                            for cached_audio in conn.asr_audio[-100:]:
+                            for cached_audio in conn.asr_audio[-50:]:
                                 try:
                                     pcm_frame = self.decoder.decode(cached_audio, 960)
                                     await self.asr_ws.send(pcm_frame)
+
                                 except Exception as e:
                                     logger.bind(tag=TAG).warning(f"发送缓存音频失败: {e}")
                                     break
+                            conn.asr_audio.clear
                         continue
 
                     if message_name == "TranscriptionResultChanged":
                         # 中间结果
-                        text = payload.get("result", "")
-                        logger.bind(tag=TAG).warning(f"中间返回结果: {text}")
-                        if text:
-                            self.text = text
-                            last_result_time = time.time()
+                        text2 = payload.get("result", "")
+                         #logger.bind(tag=TAG).warning(f"中间返回结果: {text2}")
+                        # if text:
+                        #     self.text = text
+                        #     last_result_time = time.time()
                     elif message_name == "SentenceEnd":
                         # 最终结果
                         text = payload.get("result", "")
@@ -251,6 +252,8 @@ class ASRProvider(ASRProviderBase):
                             self.text = text
                             conn.reset_vad_states()
                             await self.safe_handle_voice_stop(conn, None)
+                            conn.asr_audio.clear()
+                            self.text = ""
                             break
                     elif message_name == "TranscriptionCompleted":
                         # 识别完成
@@ -283,7 +286,7 @@ class ASRProvider(ASRProviderBase):
         self._voice_stop_handled = False
         self.is_processing = False
         self.server_ready = False  # 重置服务器准备状态
-        self.text = ""
+        #self.text = ""
         if hasattr(self, "silence_check_task") and not self.silence_check_task.done():
             self.silence_check_task.cancel()
 
@@ -316,7 +319,7 @@ class ASRProvider(ASRProviderBase):
     async def _check_silence_timeout(self, conn, timeout_seconds=1.0):
         """无音频输入超过 timeout_seconds，则结束识别"""
         while self.is_processing:
-            await asyncio.sleep(0.1)  # 频率可以更高一些，减少延迟
+            await asyncio.sleep(0.4)  # 频率可以更高一些，减少延迟
             now = time.time()
             if self.last_audio_time is None:
                 # 如果还没收到过音频，等1秒后也结束
@@ -324,10 +327,12 @@ class ASRProvider(ASRProviderBase):
                 logger.bind(tag=TAG).info("1秒内无音频输入，自动停止识别")
                 await self._stop_recognition(conn)
                 break
-            elif now - self.last_audio_time > timeout_seconds:
-                logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
-                await self._stop_recognition(conn)
-                break
+            # elif now - self.last_audio_time > timeout_seconds:
+            #     logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
+            #     await self._stop_recognition(conn)
+            #     break
+        conn.asr_audio.clear
+        self.text = ""
 
     async def _stop_recognition(self, conn):
         """手动停止识别流程"""
