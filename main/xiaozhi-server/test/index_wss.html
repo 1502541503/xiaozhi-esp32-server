@@ -510,6 +510,13 @@
                         </select>
                     </div>
                     <div class="config-item">
+                    <label for="audioModelSelect">语音模式选择:</label>
+                        <select id="audioModelSelect">
+                            <option value="auto">auto</option>
+                            <option value="manual">manual</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
                         <label for="bleName">蓝牙名:</label>
                         <input type="text" id="bleName" value="" placeholder="请输入蓝牙名">
                     </div>
@@ -1730,6 +1737,7 @@
             llmFirstFrameLogged = false;
             messageInput.value = '';
         } catch (error) {
+            console.error('WebSocket is not open or message is empty.');
             log(`发送消息错误: ${error.message}`, 'error');
         }
     }
