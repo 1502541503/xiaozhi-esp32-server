@@ -84,9 +84,9 @@ class ManageApiClient:
         response = cls._client.request(method, endpoint, **kwargs)
         response.raise_for_status()
 
-        #print(f"请求结果：{response}")
-        #print("状态码:", response.status_code)
-        if response.status_code==200:
+        # print(f"请求结果：{response}")
+        # print("状态码:", response.status_code)
+        if response.status_code == 200:
             return 200
         else:
             return response.status_code
@@ -96,7 +96,7 @@ class ManageApiClient:
         """判断异常是否应该重试"""
         # 网络连接相关错误
         if isinstance(
-            exception, (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)
+                exception, (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)
         ):
             return True
 
@@ -165,7 +165,7 @@ def get_server_config() -> Optional[Dict]:
 
 
 def get_agent_models(
-    mac_address: str, client_id: str, selected_module: Dict
+        mac_address: str, client_id: str, selected_module: Dict
 ) -> Optional[Dict]:
     """获取代理模型配置"""
     return ManageApiClient._instance._execute_request(
@@ -180,8 +180,8 @@ def get_agent_models(
 
 
 def get_mac(
-    authorization: str,
-    mac: str
+        authorization: str,
+        mac: str
 ) -> Optional[Dict]:
     """获取代理模型配置"""
     # response = ManageApiClient._instance._execute_request(
@@ -205,10 +205,11 @@ def get_mac(
             "Client-Id": "esp32s3",
         },
     )
-    if(response == 200):
+    if (response == 200):
         return mac
     else:
         return None
+
 
 # 检查是否授权
 # 检查是否授权
@@ -219,21 +220,16 @@ def checkAuth(bleInfo) -> bool:
     :return: 授权成功返回设备信息，否则返回None
     """
     try:
-        response = ManageApiClient._instance._execute_request2(
+        response = ManageApiClient._instance._execute_request(
             "POST",
             "/ota/checkAuth",
             json=bleInfo,  # 直接传递整个bleInfo对象作为请求体
         )
-        # 由于Java接口返回ResponseEntity<Boolean>，response中data字段为布尔值
-        # 如果授权成功（True），返回原始bleInfo或其他有用信息
-        # 如果授权失败（False），返回None
         return response
+
     except Exception as e:
         print(f"设备授权检查失败: {e}")
-        return None
-
-
-
+        return False
 
 
 def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[Dict]:
@@ -251,7 +247,7 @@ def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[Dict]:
 
 
 def report(
-    mac_address: str, session_id: str, chat_type: int, content: str, audio, report_time
+        mac_address: str, session_id: str, chat_type: int, content: str, audio, report_time
 ) -> Optional[Dict]:
     """带熔断的业务方法示例"""
     if not content or not ManageApiClient._instance:

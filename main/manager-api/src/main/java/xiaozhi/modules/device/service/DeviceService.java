@@ -88,6 +88,10 @@ public interface DeviceService extends BaseService<DeviceEntity> {
      */
     Date getLatestLastConnectionTime(String agentId);
 
-
+    /**
+     * 修改设备备注
+     * @param remark 备注
+     * @param deviceCode 设备编号
+     */
     void updateRemark(String remark, String deviceCode);
 }

@@ -60,7 +60,7 @@
     </appender>
     
     <!-- 开发环境配置 -->
-    <springProfile name="dev">
+    <springProfile name="dev|local">
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
             <!-- 开发环境也记录日志文件 -->

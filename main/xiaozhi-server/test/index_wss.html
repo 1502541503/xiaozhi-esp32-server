@@ -491,14 +491,16 @@
                         <span>MAC: <strong id="displayMac">00:11:22:33:44:55</strong></span>
                         <span>客户端: <strong id="displayClient">web_test_client</strong></span>
                     </span>
-                <button class="toggle-button" id="toggleConfig">编辑</button>
+<!--                <button class="toggle-button" id="toggleConfig">编辑</button>-->
             </div>
-            <div class="config-panel" id="configPanel">
+            <div class="expanded" id="configPanel">
+<!--            <div class="config-panel" id="configPanel">-->
                 <div class="control-panel">
                     <div class="config-item">
                         <label for="deviceMac">设备MAC:</label>
                         <input type="text" id="deviceMac" value="9E:34:34:E2:26:8F" placeholder="设备MAC地址">
                     </div>
+
                     <div class="config-item">
                         <label for="languageSelect">语言选择:</label>
                         <select id="languageSelect">
@@ -508,11 +510,12 @@
                         </select>
                     </div>
                     <div class="config-item">
-                        <label for="audioModelSelect">语音模式选择:</label>
-                        <select id="audioModelSelect">
-                            <option value="auto">auto</option>
-                            <option value="manual">manual</option>
-                        </select>
+                        <label for="bleName">蓝牙名:</label>
+                        <input type="text" id="bleName" value="" placeholder="请输入蓝牙名">
+                    </div>
+                    <div class="config-item">
+                        <label for="flag">固件标记:</label>
+                        <input type="text" id="flag" value="" placeholder="请输入固件标记">
                     </div>
                     <div class="config-item">
                         <label for="deviceName">设备名称:</label>
@@ -572,7 +575,6 @@
         <div id="scriptStatus" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
             正在加载Opus库...
         </div>
-
         <div class="section">
             <div class="tabs">
                 <button class="tab active" data-tab="text">文本消息</button>
@@ -609,8 +611,8 @@
                     <button id="sendImageButton">发送</button>
                 </div>
             </div>
-        </div>
 
+        </div>
         <div class="section" style="flex: 1;overflow: hidden;">
             <h2>会话记录</h2>
             <div class="flex-container">
@@ -1491,6 +1493,8 @@
 
             // 添加认证参数
             connUrl.searchParams.append('device-id', config.deviceId);
+            connUrl.searchParams.append('bleName', config.bleName);
+            connUrl.searchParams.append('flag', config.flag);
             connUrl.searchParams.append('client-id', config.clientId);
             connUrl.searchParams.append('authorization', "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj");
             connUrl.searchParams.append('Accept-Language', document.getElementById('languageSelect').value);
@@ -1741,6 +1745,8 @@
         const toggleButton = document.getElementById('toggleConfig');
         const configPanel = document.getElementById('configPanel');
         const deviceMacInput = document.getElementById('deviceMac');
+        const bleNameInput = document.getElementById('bleName');
+        const flagInput = document.getElementById('flag');
         const clientIdInput = document.getElementById('clientId');
         const displayMac = document.getElementById('displayMac');
         const displayClient = document.getElementById('displayClient');
@@ -1759,11 +1765,11 @@
         updateDisplayValues();
 
         // 切换面板显示
-        toggleButton.addEventListener('click', () => {
-            const isExpanded = configPanel.classList.contains('expanded');
-            configPanel.classList.toggle('expanded');
-            toggleButton.textContent = isExpanded ? '编辑' : '收起';
-        });
+<!--        toggleButton.addEventListener('click', () => {-->
+<!--            const isExpanded = configPanel.classList.contains('expanded');-->
+<!--            configPanel.classList.toggle('expanded');-->
+<!--            toggleButton.textContent = isExpanded ? '编辑' : '收起';-->
+<!--        });-->
 
         // 标签页切换
         const tabs = document.querySelectorAll('.tab');
@@ -1997,6 +2003,8 @@
                 url.searchParams.append('token', config.token);
                 url.searchParams.append('device_id', config.deviceId);
                 url.searchParams.append('device_mac', config.deviceMac);
+                url.searchParams.append('bleName', config.bleName);
+                url.searchParams.append('flag', config.flag);
 
                 const ws2 = new WebSocket(url.toString());
 
@@ -2008,6 +2016,8 @@
                         type: 'hello',
                         device_id: config.deviceId,
                         device_mac: config.deviceMac,
+                        bleName: config.bleName,
+                        flag: config.flag,
                         token: config.token
                     };
 
@@ -2680,10 +2690,14 @@
     // 获取配置值
     function getConfig() {
         const deviceMac = document.getElementById('deviceMac').value.trim();
+        const bleName = document.getElementById('bleName').value.trim();
+        const flag = document.getElementById('flag').value.trim();
         return {
             deviceId: deviceMac,  // 使用MAC地址作为deviceId
             deviceName: document.getElementById('deviceName').value.trim(),
             deviceMac: deviceMac,
+            bleName: bleName,
+            flag: flag,
             clientId: document.getElementById('clientId').value.trim(),
             token: document.getElementById('token').value.trim()
         };

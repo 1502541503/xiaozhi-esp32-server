@@ -2,9 +2,12 @@ package xiaozhi.modules.device.controller;
 
 import java.nio.charset.StandardCharsets;
 
+import cn.hutool.core.util.StrUtil;
+import jakarta.validation.Valid;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,8 +27,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.constant.Constant;
+import xiaozhi.common.utils.Result;
+import xiaozhi.modules.device.dao.BleWhiteListDao;
 import xiaozhi.modules.device.dto.DeviceReportReqDTO;
 import xiaozhi.modules.device.dto.DeviceReportRespDTO;
+import xiaozhi.modules.device.entity.BleInfo;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.sys.service.SysParamsService;
@@ -38,6 +44,7 @@ import xiaozhi.modules.sys.service.SysParamsService;
 public class OTAController {
     private final DeviceService deviceService;
     private final SysParamsService sysParamsService;
+    private final BleWhiteListDao bleWhiteListDao;
 
     @Operation(summary = "OTA版本和设备激活状态检查")
     @PostMapping
@@ -75,6 +82,20 @@ public class OTAController {
         return ResponseEntity.ok("success");
     }
 
+    @Operation(summary = "设备快速检查是否授权")
+    @PostMapping("checkAuth")
+    public Result<Boolean> checkAuth(
+            @Validated @RequestBody BleInfo bleInfo
+    ) {
+        //1.判断蓝牙名+固件标记白名单 —— 如果存在
+        if (StrUtil.isAllNotEmpty(bleInfo.getBleName(), bleInfo.getFlag()) &&
+                bleWhiteListDao.isAuthorized(bleInfo.getBleName(), bleInfo.getFlag()))
+            return new Result<Boolean>().ok(true);
+        //2.判断mac地址收授权
+        if (deviceService.getDeviceByMacAddress(bleInfo.getMac()) != null) return new Result<Boolean>().ok(true);
+        return new Result<Boolean>().ok(false);
+    }
+
     @GetMapping
     @Hidden
     public ResponseEntity<String> getOTA() {
@@ -104,7 +125,7 @@ public class OTAController {
 
     /**
      * 简单判断mac地址是否有效（非严格）
-     * 
+     *
      * @param macAddress
      * @return
      */
