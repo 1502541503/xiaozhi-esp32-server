@@ -134,7 +134,7 @@ class ASRProvider(ASRProviderBase):
                 await self._start_recognition(conn)
             except Exception as e:
                 logger.bind(tag=TAG).error(f"开始识别失败: {str(e)}")
-                await self._cleanup()
+                # await self._cleanup()
                 return
 
         if self.asr_ws and self.is_processing and self.server_ready:
@@ -148,7 +148,7 @@ class ASRProvider(ASRProviderBase):
     async def _start_recognition(self, conn):
         #print("开始识别了")
         #self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
-        self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn, timeout_seconds=1.0))
+        self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn, timeout_seconds=1.5))
 
         """开始识别会话"""
         if self._is_token_expired():
@@ -241,9 +241,9 @@ class ASRProvider(ASRProviderBase):
                         # 中间结果
                         text2 = payload.get("result", "")
                          #logger.bind(tag=TAG).warning(f"中间返回结果: {text2}")
-                        # if text:
-                        #     self.text = text
-                        #     last_result_time = time.time()
+                        if text2:
+                        #   self.text = text
+                            last_result_time = time.time()
                     elif message_name == "SentenceEnd":
                         # 最终结果
                         text = payload.get("result", "")
@@ -278,6 +278,7 @@ class ASRProvider(ASRProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"结果转发失败: {str(e)}")
         finally:
+            print("最终关闭asr")
             await self._cleanup()
 
     async def _cleanup(self):
@@ -327,10 +328,10 @@ class ASRProvider(ASRProviderBase):
                 logger.bind(tag=TAG).info("1秒内无音频输入，自动停止识别")
                 await self._stop_recognition(conn)
                 break
-            # elif now - self.last_audio_time > timeout_seconds:
-            #     logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
-            #     await self._stop_recognition(conn)
-            #     break
+            elif now - self.last_audio_time > timeout_seconds:
+                logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
+                await self._stop_recognition(conn)
+                break
         conn.asr_audio.clear
         self.text = ""
 
