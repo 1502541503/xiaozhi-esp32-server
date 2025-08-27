@@ -72,8 +72,7 @@ class TTSProvider(TTSProviderBase):
                 data = resp.json()["data"]
                 audio_bytes = base64.b64decode(data)
                 if output_file:
-                    with open(output_file, "wb") as file_to_save:
-                        file_to_save.write(audio_bytes)
+                    self.save_audio_to_file(audio_bytes, output_file)
                 else:
                     return audio_bytes
             else:

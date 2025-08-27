@@ -1,0 +1,57 @@
+services:
+  # Python主服务
+  xz-server:
+    image: ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:server_latest
+    container_name: xz-server
+    restart: always
+    ports:
+      - "8000:8000"
+      - "8003:8003"
+    volumes:
+      - "/home/work/sma_xz/xz-server:/opt/xiaozhi-esp32-server"
+    environment:
+      - TZ=Asia/Shanghai
+    command: python app.py
+    depends_on:
+      - xz-redis
+      - xz-web
+    networks:
+      - sma-net
+  # Redis服务
+  xz-redis:
+    image: redis:latest
+    container_name: xz-redis
+    restart: always
+    ports:
+      - "32768:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sma-net
+  # Java Web服务
+  xz-web:
+    image: docker.xuanyuan.me/library/openjdk:21
+    container_name: xz-web
+    restart: always
+    ports:
+      - "8002:8002"
+    volumes:
+      - "/home/work/sma_xz/xz-web/server:/home/work/sma_xz/xz-web/server"
+    environment:
+      - TZ=Asia/Shanghai
+      - SPRING_DATA_REDIS_HOST=xz-redis
+      - SPRING_DATA_REDIS_PASSWORD=
+      - SPRING_DATA_REDIS_PORT=6379
+    command: >
+      sh -c "java -jar /home/work/sma_xz/xz-web/server/xiaozhi-esp32-api.jar"
+    depends_on:
+      - xz-redis
+    networks:
+      - sma-net
+networks:
+  sma-net:
+    name: sma-net
+    driver: bridge
+
+volumes:
+  redis-data:

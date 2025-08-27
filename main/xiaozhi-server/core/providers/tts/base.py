@@ -1,4 +1,5 @@
 import os
+import random
 import re
 import queue
 import uuid
@@ -34,7 +35,7 @@ class TTSProviderBase(ABC):
         self.tts_timeout = 10
         self.delete_audio_file = delete_audio_file
         self.audio_file_type = "wav"
-        self.output_file = config.get("output_dir", "tmp/")
+        self.output_file = "tmp/"
         self.tts_text_queue = queue.Queue()
         self.tts_audio_queue = queue.Queue()
         self.tts_audio_first_sentence = True
@@ -75,7 +76,7 @@ class TTSProviderBase(ABC):
     def generate_filename(self, extension=".wav"):
         return os.path.join(
             self.output_file,
-            f"tts-{datetime.now().date()}@{uuid.uuid4().hex}{extension}",
+            f"tts-{ datetime.now().strftime('%Y-%m-%d %H:%M:%S')}@{random.randint(100000, 999999)}{extension}",
         )
 
     def to_tts(self, text):
@@ -298,6 +299,14 @@ class TTSProviderBase(ABC):
         """资源清理方法"""
         if hasattr(self, "ws") and self.ws:
             await self.ws.close()
+
+    def save_audio_to_file(self, audio_content,output_file) -> str:
+
+        with open(output_file, "wb") as audio_file:
+            audio_file.write(audio_content)
+
+        logger.bind(tag=TAG).info(f"tts合成完成，保存音频文件路径: {output_file}")
+        return output_file
 
     def _get_segment_text(self):
         # 合并当前全部文本并处理未分割部分

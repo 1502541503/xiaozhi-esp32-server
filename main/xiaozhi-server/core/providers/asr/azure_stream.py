@@ -1,8 +1,9 @@
 import asyncio
 import time
+import os
+import uuid
 from typing import Optional
 import azure.cognitiveservices.speech as speechsdk
-from numba.core.cgutils import printf
 
 from core.providers.asr.base import ASRProviderBase
 from config.logger import setup_logging
@@ -10,6 +11,7 @@ from core.providers.asr.dto.dto import InterfaceType
 import gzip
 import opuslib_next
 import threading
+import shutil
 
 from core.utils.util import _parse_accept_language
 
@@ -28,8 +30,10 @@ class ASRProvider(ASRProviderBase):
         self.is_processing = False
         self.server_ready = False  # 服务器准备状态
         self.audio_buffer = []  # 音频数据缓冲区
+        self.raw_audio_buffer = []  # 原始音频数据缓冲区
 
         self.conn = None
+        self.output_dir = config.get("output_dir", "tmp/")
 
         # Azure配置参数
         self.api_key = config.get("api_key")
@@ -86,6 +90,8 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"预初始化Azure流式识别失败: {str(e)}")
 
     async def receive_audio(self, conn, audio, audio_have_voice):
+        # 收集原始音频数据
+        self.raw_audio_buffer.append(audio)
 
         # 如果有语音且未开始处理，启动识别
         if audio_have_voice and not self.is_processing:
@@ -99,6 +105,7 @@ class ASRProvider(ASRProviderBase):
                 logger.bind(tag=TAG).error(f"启动Azure流式识别失败: {str(e)}")
                 self.is_processing = False
                 self.audio_buffer = []  # 清空缓冲区
+                self.raw_audio_buffer = []  # 清空原始音频缓冲区
                 return
 
         # 如果已经开始处理但服务器还未准备好，缓冲音频
@@ -204,7 +211,7 @@ class ASRProvider(ASRProviderBase):
         self.session_started = True
         self.server_ready = True
         logger.bind(tag=TAG).info("Azure语音识别会话已开始")
-        
+
         # 发送缓冲的音频数据
         if self.audio_buffer:
             logger.bind(tag=TAG).info(f"发送缓冲的音频数据，共{len(self.audio_buffer)}帧")
@@ -233,14 +240,20 @@ class ASRProvider(ASRProviderBase):
     async def _handle_voice_stop(self):
         self.is_processing = False
         self.server_ready = False  # 服务器准备状态
-        await self.handle_voice_stop(self.conn, None)
 
+        # 保存原始音频
+        audio_file_path = self.save_raw_audio()
+
+        # 清理原始音频缓冲区
+        self.raw_audio_buffer = []
+
+        await self.handle_voice_stop(self.conn, audio_file_path)
 
     async def speech_to_text(self, opus_data, session_id, audio_format):
         """获取识别结果"""
         result = self.result_text
         self.result_text = ""  # 清空结果
-        return result, None
+        return result, ""
 
     async def close(self):
         """关闭资源"""
@@ -267,32 +280,31 @@ class ASRProvider(ASRProviderBase):
         self.is_processing = False
         self.server_ready = False  # 重置服务器准备状态
         self.result_text = ""
+        self.raw_audio_buffer = []  # 清空原始音频缓冲区
         await self.close()
 
-    def generate_audio_default_header(self):
-        return self.generate_header(
-            version=0x01,
-            message_type=0x02,
-            message_type_specific_flags=0x00,
-            serial_method=0x01,
-            compression_type=0x01,
-        )
+    def save_raw_audio(self) -> Optional[str]:
+        """保存原始音频数据(Opus格式)到文件"""
+        if not self.raw_audio_buffer:
+            logger.bind(tag=TAG).debug("原始音频缓冲区为空，不保存")
+            return None
 
-    def generate_header(
-            self,
-            version=0x01,
-            message_type=0x01,
-            message_type_specific_flags=0x00,
-            serial_method=0x01,
-            compression_type=0x01,
-            reserved_data=0x00,
-            extension_header: bytes = b"",
-    ):
-        header = bytearray()
-        header_size = int(len(extension_header) / 4) + 1
-        header.append((version << 4) | header_size)
-        header.append((message_type << 4) | message_type_specific_flags)
-        header.append((serial_method << 4) | compression_type)
-        header.append(reserved_data)
-        header.extend(extension_header)
-        return header
+        try:
+            file_path = None
+            # 合并所有opus数据包
+            if self.conn.audio_format == "pcm":
+                pcm_data = self.raw_audio_buffer
+            else:
+                pcm_data = self.decode_opus(self.raw_audio_buffer)
+
+            # 判断是否保存为WAV文件
+            if self.delete_audio_file:
+                pass
+            else:
+                file_path = self.save_audio_to_file(pcm_data, self.conn.session_id)
+
+            return file_path
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"保存原始音频文件失败: {str(e)}")
+            return None
+

@@ -17,20 +17,12 @@ class TTSProvider(TTSProviderBase):
         self.voice = config.get("voice", "alloy")
         self.api_version = config.get("api_version", "2025-04-01-preview")
 
-        self.output_file = config.get("output_dir", "tmp/")
+        self.output_file = "tmp/"
 
         # 验证必要配置
         if not self.api_key:
             raise ValueError("Azure OpenAI TTS api_key is required")
 
-        # 确保输出目录存在
-        if not os.path.exists(self.output_file):
-            try:
-                os.makedirs(self.output_file, exist_ok=True)
-            except Exception as e:
-                # 如果配置的目录无法创建，使用当前工作目录下的 tmp 文件夹
-                self.output_file = os.path.join(os.getcwd(), "tmp")
-                os.makedirs(self.output_file, exist_ok=True)
 
     def generate_filename(self, extension=".mp3"):
         """生成唯一的音频文件名"""
@@ -62,14 +54,7 @@ class TTSProvider(TTSProviderBase):
                     if response.status == 200:
                         content = await response.read()
                         if output_file:
-                            # 确保输出目录存在
-                            output_dir = os.path.dirname(output_file)
-                            if output_dir and not os.path.exists(output_dir):
-                                os.makedirs(output_dir, exist_ok=True)
-
-                            with open(output_file, "wb") as audio_file:
-                                audio_file.write(content)
-                            logger.bind(tag=TAG).info(f"Azure OpenAI TTS 合成已完成，文本: {text[:30]}...")
+                            self.save_audio_to_file(content, output_file)
                         return output_file
                     else:
                         error_text = await response.text()
