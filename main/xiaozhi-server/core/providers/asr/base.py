@@ -193,7 +193,7 @@ class ASRProviderBase(ABC):
     def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
         """PCM数据保存为WAV文件"""
         module_name = __name__.split(".")[-1]
-        file_name = f"asr-{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}@{random.randint(100000, 999999)}.wav"
+        file_name = f"asr-{datetime.now().strftime('%Y-%m-%d_%H%M%S')}_{random.randint(100000, 999999)}.wav"
         file_path = os.path.join("tmp/", file_name)
 
         with wave.open(file_path, "wb") as wf:

@@ -79,6 +79,7 @@ class ASRProvider(ASRProviderBase):
         self.server_ready = False  # 服务器准备状态
 
         self._voice_stop_handled = False
+        self.audio_file = None
 
         # 基础配置
         self.access_key_id = config.get("access_key_id")
@@ -124,23 +125,42 @@ class ASRProvider(ASRProviderBase):
     async def receive_audio(self, conn, audio, audio_have_voice):
         #print(f"进入阿里流式receive_audio。audio_have_voice={audio_have_voice}.self.is_processing={self.is_processing}")
         conn.asr_audio.append(audio)
-        conn.asr_audio = conn.asr_audio[-50:]
+        conn.asr_audio = conn.asr_audio[-100:]
         if audio_have_voice:
             self.last_audio_time = time.time()
 
         # 参考豆包ASR：只在有声音且没有连接时建立连接
         if audio_have_voice and not self.is_processing:
             try:
+                # 初始化 PCM 缓存
+                conn.pcm_data = []
                 await self._start_recognition(conn)
+                # if self.audio_file is None:
+                #     os.makedirs("recordings", exist_ok=True)
+                #     ts = int(time.time() * 1000)  # 毫秒级时间戳
+                #     rand = uuid.uuid4().hex[:5]  # 8位随机串
+                #     audio_filename = f"recordings/audio_{ts}_{rand}.wav"
+                #     self.audio_file = wave.open(audio_filename, "wb")
+                #     self.audio_file.setnchannels(1)
+                #     self.audio_file.setsampwidth(2)
+                #     self.audio_file.setframerate(16000)
+
             except Exception as e:
                 logger.bind(tag=TAG).error(f"开始识别失败: {str(e)}")
-                # await self._cleanup()
+                await self._cleanup()
                 return
 
         if self.asr_ws and self.is_processing and self.server_ready:
             try:
                 pcm_frame = self.decoder.decode(audio, 960)
                 await self.asr_ws.send(pcm_frame)
+                # === 写入保存文件 ===、
+                # if self.audio_file:
+                # === 缓存 PCM 数据 ===
+                if not hasattr(conn, "pcm_data"):
+                    conn.pcm_data = []
+                conn.pcm_data.append(pcm_frame)
+
             except Exception as e:
                 logger.bind(tag=TAG).warning(f"发送音频失败: {str(e)}")
                 await self._cleanup()
@@ -148,6 +168,9 @@ class ASRProvider(ASRProviderBase):
     async def _start_recognition(self, conn):
         #print("开始识别了")
         #self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
+        if self.is_processing:  # 防止重复进入
+            logger.bind(tag=TAG).warning("已有识别进行中，忽略新的 start")
+            return
         self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn, timeout_seconds=1.5))
 
         """开始识别会话"""
@@ -162,7 +185,7 @@ class ASRProvider(ASRProviderBase):
             max_size=1000000000,
             ping_interval=None,
             ping_timeout=None,
-            close_timeout=5,
+            close_timeout=10,
         )
 
         self.is_processing = True
@@ -187,7 +210,7 @@ class ASRProvider(ASRProviderBase):
                 "enable_punctuation_prediction": True,
                 "enable_inverse_text_normalization": True,
                 "max_sentence_silence": self.max_sentence_silence,
-                "enable_voice_detection": False,
+                "enable_voice_detection": False
             }
         }
         await self.asr_ws.send(json.dumps(start_request, ensure_ascii=False))
@@ -201,7 +224,7 @@ class ASRProvider(ASRProviderBase):
                 try:
                     response = await asyncio.wait_for(self.asr_ws.recv(), timeout=1.0)
                     result = json.loads(response)
-
+                    print(f"{result}")
                     header = result.get("header", {})
                     payload = result.get("payload", {})
                     message_name = header.get("name", "")
@@ -225,24 +248,21 @@ class ASRProvider(ASRProviderBase):
                         logger.bind(tag=TAG).info("服务器已准备，开始发送缓存音频...")
 
                         # 发送缓存音频
-                        if conn.asr_audio:
-                            for cached_audio in conn.asr_audio[-50:]:
+                        if conn.asr_audio and not self.last_audio_time:
+                            for cached_audio in conn.asr_audio[-100:]:
                                 try:
                                     pcm_frame = self.decoder.decode(cached_audio, 960)
                                     await self.asr_ws.send(pcm_frame)
-
                                 except Exception as e:
                                     logger.bind(tag=TAG).warning(f"发送缓存音频失败: {e}")
                                     break
-                            conn.asr_audio.clear
-                        continue
 
                     if message_name == "TranscriptionResultChanged":
                         # 中间结果
-                        text2 = payload.get("result", "")
-                         #logger.bind(tag=TAG).warning(f"中间返回结果: {text2}")
-                        if text2:
-                        #   self.text = text
+                        text = payload.get("result", "")
+                        logger.bind(tag=TAG).warning(f"中间返回结果: {text}")
+                        if text:
+                            self.text = text
                             last_result_time = time.time()
                     elif message_name == "SentenceEnd":
                         # 最终结果
@@ -251,10 +271,19 @@ class ASRProvider(ASRProviderBase):
                         if text:
                             self.text = text
                             conn.reset_vad_states()
+
+                            print(f"是否保存asr:{self.delete_audio_file}")
+                            # === 保存完整 PCM 数据到 wav ===
+                            if hasattr(conn, "pcm_data") and conn.pcm_data:
+                                if not self.delete_audio_file:
+                                    file_path = self.save_audio_to_file(conn.pcm_data, session_id=conn.session_id)
+                                    logger.info(f"已保存音频: {file_path}")
+                                conn.pcm_data.clear()
+
                             await self.safe_handle_voice_stop(conn, None)
-                            conn.asr_audio.clear()
-                            self.text = ""
+
                             break
+                        await self._cleanup()
                     elif message_name == "TranscriptionCompleted":
                         # 识别完成
                         self.is_processing = False
@@ -267,6 +296,13 @@ class ASRProvider(ASRProviderBase):
                             logger.bind(tag=TAG).info("超过2秒无新最终结果，主动结束识别")
                             conn.reset_vad_states()
                             await self.safe_handle_voice_stop(conn, None)
+
+                            # === 保存完整 PCM 数据到 wav ===
+                            if hasattr(conn, "pcm_data") and conn.pcm_data:
+                                if not self.delete_audio_file:
+                                    file_path = self.save_audio_to_file(conn.pcm_data, session_id=conn.session_id)
+                                    logger.info(f"已保存音频: {file_path}")
+                                conn.pcm_data.clear()
                         break
                     continue
                 except websockets.exceptions.ConnectionClosed:
@@ -278,7 +314,6 @@ class ASRProvider(ASRProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"结果转发失败: {str(e)}")
         finally:
-            print("最终关闭asr")
             await self._cleanup()
 
     async def _cleanup(self):
@@ -287,7 +322,7 @@ class ASRProvider(ASRProviderBase):
         self._voice_stop_handled = False
         self.is_processing = False
         self.server_ready = False  # 重置服务器准备状态
-        #self.text = ""
+        self.text = ""
         if hasattr(self, "silence_check_task") and not self.silence_check_task.done():
             self.silence_check_task.cancel()
 
@@ -307,7 +342,7 @@ class ASRProvider(ASRProviderBase):
             self.asr_ws = None
 
 
-    async def speech_to_text(self, opus_data, session_id, audio_format):
+    async def speech_to_text(self, opus_data, session_id, audio_format,language: str = None):
         """获取识别结果"""
         result = self.text
         self.text = ""
@@ -320,7 +355,7 @@ class ASRProvider(ASRProviderBase):
     async def _check_silence_timeout(self, conn, timeout_seconds=1.0):
         """无音频输入超过 timeout_seconds，则结束识别"""
         while self.is_processing:
-            await asyncio.sleep(0.4)  # 频率可以更高一些，减少延迟
+            await asyncio.sleep(0.1)  # 频率可以更高一些，减少延迟
             now = time.time()
             if self.last_audio_time is None:
                 # 如果还没收到过音频，等1秒后也结束
@@ -332,11 +367,10 @@ class ASRProvider(ASRProviderBase):
                 logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
                 await self._stop_recognition(conn)
                 break
-        conn.asr_audio.clear
-        self.text = ""
 
     async def _stop_recognition(self, conn):
         """手动停止识别流程"""
+        print("===手动停止了===")
         if self.asr_ws:
             try:
                 stop_request = {
@@ -352,6 +386,13 @@ class ASRProvider(ASRProviderBase):
             except Exception as e:
                 logger.bind(tag=TAG).warning(f"发送 Stop 请求失败: {e}")
 
+        if self.asr_ws and conn.asr_audio:
+            try:
+                pcm_frame = self.decoder.decode(conn.asr_audio[-1], 960)
+                await self.asr_ws.send(pcm_frame)
+                logger.bind(tag=TAG).info("Stop 前补发最后一帧音频")
+            except Exception as e:
+                logger.bind(tag=TAG).warning(f"Stop 前补发失败: {e}")
         # 清理
         self.is_processing = False
         self.server_ready = False
@@ -360,8 +401,25 @@ class ASRProvider(ASRProviderBase):
         if self._voice_stop_handled:
             logger.bind(tag=TAG).info("handle_voice_stop 已处理，跳过重复调用")
             return
+        stop_request = {
+            "header": {
+                "namespace": "SpeechTranscriber",
+                "name": "StopTranscription",
+                "status": 20000000,
+                "appkey": self.appkey,
+                "message_id": ''.join(random.choices('0123456789abcdef', k=32)),
+            }
+        }
+        await self.asr_ws.send(json.dumps(stop_request))
+        logger.bind(tag=TAG).info("已发送 Stop 请求")
         self._voice_stop_handled = True
         await self.handle_voice_stop(conn, arg)
         # 清理
         self.is_processing = False
         self.server_ready = False
+
+
+    def _gen_silence_pcm(self, duration_sec=0.3, sample_rate=16000):
+        """生成一段静音 PCM"""
+        frame_count = int(sample_rate * duration_sec)
+        return b"\x00\x00" * frame_count  # 16bit PCM 全 0

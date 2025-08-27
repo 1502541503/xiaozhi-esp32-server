@@ -76,7 +76,7 @@ class TTSProviderBase(ABC):
     def generate_filename(self, extension=".wav"):
         return os.path.join(
             self.output_file,
-            f"tts-{ datetime.now().strftime('%Y-%m-%d %H:%M:%S')}@{random.randint(100000, 999999)}{extension}",
+            f"tts-{ datetime.now().strftime('%Y-%m-%d_%H%M%S')}_{random.randint(100000, 999999)}{extension}",
         )
 
     def to_tts(self, text):
@@ -360,8 +360,9 @@ class TTSProviderBase(ABC):
         audio_datas = []
         if tts_file.endswith(".p3"):
             audio_datas, _ = p3.decode_opus_from_file(tts_file)
-        elif self.conn.audio_format == "pcm":
-            audio_datas, _ = self.audio_to_pcm_data(tts_file)
+        #这边就算是pcm返会也按opus处理zzq
+        #elif self.conn.audio_format == "pcm":
+        #    audio_datas, _ = self.audio_to_pcm_data(tts_file)
         else:
             audio_datas, _ = self.audio_to_opus_data(tts_file)
 
