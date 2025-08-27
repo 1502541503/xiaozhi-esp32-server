@@ -491,10 +491,10 @@
                         <span>MAC: <strong id="displayMac">00:11:22:33:44:55</strong></span>
                         <span>客户端: <strong id="displayClient">web_test_client</strong></span>
                     </span>
-<!--                <button class="toggle-button" id="toggleConfig">编辑</button>-->
+                <!--                <button entity="toggle-button" id="toggleConfig">编辑</button>-->
             </div>
             <div class="expanded" id="configPanel">
-<!--            <div class="config-panel" id="configPanel">-->
+                <!--            <div entity="config-panel" id="configPanel">-->
                 <div class="control-panel">
                     <div class="config-item">
                         <label for="deviceMac">设备MAC:</label>
@@ -510,7 +510,7 @@
                         </select>
                     </div>
                     <div class="config-item">
-                    <label for="audioModelSelect">语音模式选择:</label>
+                        <label for="audioModelSelect">语音模式选择:</label>
                         <select id="audioModelSelect">
                             <option value="auto">auto</option>
                             <option value="manual">manual</option>
@@ -1662,7 +1662,13 @@
                 device_id: config.deviceId,
                 device_name: config.deviceName,
                 device_mac: config.deviceMac,
-                token: config.token
+                token: config.token,
+                "audio_params": {
+                    "format": "opus",
+                    "sample_rate": 24000,
+                    "channels": 1,
+                    "frame_duration": 60
+                }
             };
 
             log('发送hello握手消息', 'info');
@@ -1773,11 +1779,11 @@
         updateDisplayValues();
 
         // 切换面板显示
-<!--        toggleButton.addEventListener('click', () => {-->
-<!--            const isExpanded = configPanel.classList.contains('expanded');-->
-<!--            configPanel.classList.toggle('expanded');-->
-<!--            toggleButton.textContent = isExpanded ? '编辑' : '收起';-->
-<!--        });-->
+        <!--        toggleButton.addEventListener('click', () => {-->
+        <!--            const isExpanded = configPanel.classList.contains('expanded');-->
+        <!--            configPanel.classList.toggle('expanded');-->
+        <!--            toggleButton.textContent = isExpanded ? '编辑' : '收起';-->
+        <!--        });-->
 
         // 标签页切换
         const tabs = document.querySelectorAll('.tab');

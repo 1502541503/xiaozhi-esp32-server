@@ -1,5 +1,7 @@
+from datetime import datetime
 import json
 import os
+import random
 import time
 import wave
 import copy
@@ -26,6 +28,7 @@ class ASRProviderBase(ABC):
     TAG = "ASRProviderBase"
 
     def __init__(self):
+        self.output_dir = "tmp/"
         pass
 
     # 打开音频通道
@@ -190,14 +193,16 @@ class ASRProviderBase(ABC):
     def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
         """PCM数据保存为WAV文件"""
         module_name = __name__.split(".")[-1]
-        file_name = f"asr_{module_name}_{session_id}_{uuid.uuid4()}.wav"
-        file_path = os.path.join(self.output_dir, file_name)
+        file_name = f"asr-{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}@{random.randint(100000, 999999)}.wav"
+        file_path = os.path.join("tmp/", file_name)
 
         with wave.open(file_path, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)  # 2 bytes = 16-bit
             wf.setframerate(16000)
             wf.writeframes(b"".join(pcm_data))
+
+        logger.bind(tag=ASRProviderBase.TAG).info(f"asr识别完成，保存音频文件路径: {file_path}")
 
         return file_path
 
