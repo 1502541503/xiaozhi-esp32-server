@@ -84,7 +84,7 @@ class Dialogue:
         if lon and lat:
             system_content += f"\n用户所在的经纬度location：{lon},{lat}\n"
         if lang:
-            system_content += f"\n用户使用的语言：{lang}\n"
+            system_content += f"\n你必须始终使用与用户输入相同的语言回答。你回复的语言为：{lang}\n"
 
         dialogue.append({"role": "system", "content": system_content})
 
