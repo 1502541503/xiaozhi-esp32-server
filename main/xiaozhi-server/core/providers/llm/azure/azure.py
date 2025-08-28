@@ -113,18 +113,25 @@ class LLMProvider(LLMProviderBase):
     def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
         try:
             deployment_name = self.deployment_name
-
+            stream_response = None
             if imgUrl:
-                dialogue = self.vllm_chat_response(dialogue, imgUrl, deployment_name)
+                deployment_name = "gpt4o"
+                dialogue = self.vllm_chat_response(dialogue, imgUrl)
+                stream_response = self.client.chat.completions.create(
+                    model=deployment_name,
+                    messages=dialogue,
+                    stream=True
+                    # 视觉识别不调用工具方法
+                )
+            else:
+                stream_response = self.client.chat.completions.create(
+                    model=deployment_name,  # 使用 deployment_name
+                    messages=dialogue,
+                    stream=True,
+                    tools=functions
+                )
 
-            stream = self.client.chat.completions.create(
-                model=deployment_name,  # 使用 deployment_name
-                messages=dialogue,
-                stream=True,
-                tools=functions
-            )
-
-            for chunk in stream:
+            for chunk in stream_response:
                 if getattr(chunk, "choices", None):
                     yield chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls
                     logger.bind(tag=TAG).info(
@@ -141,7 +148,7 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).error(f"Error in function call streaming: {e}")
             yield f"The service is busy, please try again", None
 
-    def vllm_chat_response(self, dialogue, imgUrl, deployment_name):
+    def vllm_chat_response(self, dialogue, imgUrl):
         domain_mapping = {
             "https://dev-oss.iot-solution.net": "https://sma-hk-test.oss-accelerate.aliyuncs.com",
             "https://test-oss.iot-solution.net": "https://sma-test.oss-accelerate.aliyuncs.com",
@@ -155,11 +162,6 @@ class LLMProvider(LLMProviderBase):
             if imgUrl.startswith(old_domain):
                 imgUrl = imgUrl.replace(old_domain, new_domain, 1)
                 break  # 找到就替换，无需再判断后面的
-
-        deployment_name = "gpt4o"
-
-        logger.bind(tag=TAG).info(f"response_with_functions imgUrl: {imgUrl},deployment_name:{deployment_name}")
-        logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
 
         # 提取最后的用户消息内容
         original_text = ""
@@ -184,6 +186,9 @@ class LLMProvider(LLMProviderBase):
                 ]
             }
         ]
+
+        logger.bind(tag=TAG).info(f"imgUrl: {imgUrl}")
+        logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
 
         return dialogue
 
