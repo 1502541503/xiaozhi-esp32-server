@@ -139,7 +139,7 @@ class LLMProvider(LLMProviderBase):
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"Error in function call streaming: {e}")
-            yield f"【OpenAI服务响应异常: {e}】", None
+            yield f"The service is busy, please try again", None
 
     def vllm_chat_response(self, dialogue, imgUrl, deployment_name):
         domain_mapping = {
