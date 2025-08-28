@@ -23,11 +23,13 @@ services:
     container_name: xz-redis
     restart: always
     ports:
-      - "32768:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
+    command: redis-server --requirepass admin@123
     networks:
       - sma-net
+
   # Java Web服务
   xz-web:
     image: docker.xuanyuan.me/library/openjdk:21
@@ -40,7 +42,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - SPRING_DATA_REDIS_HOST=xz-redis
-      - SPRING_DATA_REDIS_PASSWORD=
+      - SPRING_DATA_REDIS_PASSWORD=admin@123
       - SPRING_DATA_REDIS_PORT=6379
     command: >
       sh -c "java -jar /home/work/sma_xz/xz-web/server/xiaozhi-esp32-api.jar"
