@@ -12,6 +12,8 @@ import subprocess
 from urllib.parse import urlparse, parse_qs
 
 import websockets
+
+from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
 from core.handle.mcpHandle import call_mcp_tool
 from core.utils.util import (
     extract_json_from_string,
@@ -244,24 +246,14 @@ class ConnectionHandler:
 
             if self.headers.get("authorization") is None:
                 self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
-                await ws.send(json.dumps({
-                    "type": "server",
-                    "status": "error",
-                    "code": "5001",
-                    "msg": "Missing authorization information, please confirm if authorization is included"
-                }))
+                await ws.send(WebSocketErrorManager.create_error_response(ErrorCode.AUTH_TOKEN_ERROR))
                 await self.close(ws)
                 return
             try:
                 expected_token = "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj"
                 auth_header = self.headers.get("authorization")
                 if not auth_header or auth_header.strip() != expected_token:
-                    await ws.send(json.dumps({
-                        "type": "server",
-                        "status": "error",
-                        "code": "5001",
-                        "msg": "authorization error"
-                    }))
+                    await ws.send(WebSocketErrorManager.create_error_response(ErrorCode.AUTH_TOKEN_ERROR))
                     await self.close(ws)
                     return
 
@@ -271,11 +263,7 @@ class ConnectionHandler:
 
                 if not auth_flag or auth_flag is False:
                     self.logger.bind(tag=TAG).error("设备未授权")
-                    await ws.send(json.dumps({
-                        "type": "server",
-                        "code": "5002",
-                        "msg": "unauthorized"
-                    }))
+                    await ws.send(WebSocketErrorManager.create_error_response(ErrorCode.AUTH_MAC_ERROR))
                     await self.close(ws)
                     return
 
@@ -283,11 +271,7 @@ class ConnectionHandler:
 
             except Exception as e:
                 self.logger.bind(tag=TAG).error(f"授权请求失败: {e}")
-                await ws.send(json.dumps({
-                    "type": "server",
-                    "code": "5003",
-                    "msg": f"授权请求失败：{str(e)}"
-                }))
+                await ws.send(WebSocketErrorManager.create_error_response(ErrorCode.AUTH_ERROR))
                 await self.close(ws)
                 return
             # # 获取并验证headers
@@ -511,8 +495,17 @@ class ConnectionHandler:
             if hasattr(self.asr, 'init_headers') and callable(self.asr.init_headers):
                 self.asr.init_headers(self.headers)
 
-            if hasattr(self.llm, 'init_headers') and callable(self.llm.init_headers):
-                self.llm.init_headers(self.headers)
+            if hasattr(self.llm, 'init_args') and callable(self.llm.init_args):
+                self.llm.init_args(
+                    headers=self.headers,
+                    ws=self.websocket
+                )
+
+            if hasattr(self.tts, 'init_args') and callable(self.tts.init_args):
+                self.tts.init_args(
+                    headers=self.headers,
+                    ws=self.websocket
+                )
 
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
@@ -867,6 +860,12 @@ class ConnectionHandler:
                     )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
+            # 发送错误信息给客户端
+            asyncio.run_coroutine_threadsafe(
+                self.websocket.send(
+                    WebSocketErrorManager.create_error_response(ErrorCode.LLM_MANAGER_ERROR, {"e": str(e)})),
+                self.loop
+            )
             return None
 
         # 处理流式响应

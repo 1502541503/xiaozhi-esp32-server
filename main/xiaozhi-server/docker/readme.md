@@ -9,6 +9,7 @@
 3. TenVAD相关依赖安装
    - apt install git
    - apt install libc++1
+   - apt install git
    - pip install -U git+https://github.com/TEN-framework/ten-vad.git
 4. Azure相关依赖安装
    - apt-get install build-essential ca-certificates libasound2-dev libssl-dev wget

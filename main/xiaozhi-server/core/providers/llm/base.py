@@ -39,5 +39,5 @@ class LLMProviderBase(ABC):
         for token in self.response(session_id, dialogue):
             yield token, None
 
-    def init_headers(self, headers):
+    def init_args(self, **args):
         pass

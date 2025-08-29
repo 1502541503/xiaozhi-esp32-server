@@ -1,7 +1,9 @@
 import httpx
+import asyncio
 from openai import AzureOpenAI  # 改为导入 AzureOpenAI
 from openai.types import CompletionUsage
 from config.logger import setup_logging
+from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
 from core.utils.util import check_model_key
 from core.providers.llm.base import LLMProviderBase
 
@@ -11,12 +13,15 @@ logger = setup_logging()
 
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
-        self.headers = None
         self.deployment_name = config.get("deployment_name")  # Azure 使用 deployment 名称
         self.api_key = config.get("api_key")
         self.endpoint = config.get("end_point")  # Azure 特定 endpoint
         self.api_version = config.get("api_version", "2025-01-01-preview")  # Azure API 版本
         self.max_tokens = config.get("max_tokens", 300)
+        self.conn = None
+        self.headers = None
+        self.ws = None
+        self.loop = asyncio.get_event_loop()
 
         # 移除 base_url/url 处理，使用 endpoint
         timeout = config.get("timeout", 300)
@@ -145,8 +150,13 @@ class LLMProvider(LLMProviderBase):
                     )
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"Error in function call streaming: {e}")
-            yield f"The service is busy, please try again", None
+            logger.bind(tag=TAG).error(f"LLM处理异常: {e}")
+            asyncio.run_coroutine_threadsafe(
+                self.ws.send(
+                    WebSocketErrorManager.create_error_response(ErrorCode.LLM_MANAGER_ERROR, {"e": str(e)})),
+                self.loop
+            )
+            return None
 
     def vllm_chat_response(self, dialogue, imgUrl):
         domain_mapping = {
@@ -192,5 +202,6 @@ class LLMProvider(LLMProviderBase):
 
         return dialogue
 
-    def init_headers(self, headers):
-        self.headers = headers
+    def init_args(self, **args):
+        self.headers = args.get("headers")
+        self.ws = args.get("ws")
