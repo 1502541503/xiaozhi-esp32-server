@@ -1,6 +1,8 @@
 import openai
+import asyncio
 from openai.types import CompletionUsage
 from config.logger import setup_logging
+from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
 from core.utils.util import check_model_key
 from core.providers.llm.base import LLMProviderBase
 
@@ -11,7 +13,9 @@ logger = setup_logging()
 class LLMProvider(LLMProviderBase):
     def __init__(self, config):
 
+        self.loop = asyncio.get_event_loop()
         self.headers = None
+        self.ws = None
         self.isAiOnline = None
         print("图像识别 openai：", "111")
 
@@ -200,7 +204,13 @@ class LLMProvider(LLMProviderBase):
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"问答异常: {e}")
-            yield f"【抱歉，服务器开小差，请再次尝试】", None
+            asyncio.run_coroutine_threadsafe(
+                self.ws.send(
+                    WebSocketErrorManager.create_error_response(ErrorCode.LLM_MANAGER_ERROR, {"e": str(e)})),
+                self.loop
+            )
+            return None
 
-    def init_headers(self, headers):
-        self.headers = headers
+    def init_args(self, **args):
+        self.headers = args.get("headers")
+        self.ws = args.get("ws")

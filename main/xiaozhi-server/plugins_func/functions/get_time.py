@@ -68,6 +68,8 @@ def get_lunar(query=None):
     """
     用于获取当前的阴历/农历，和天干地支、节气、生肖、星座、八字、宜忌等黄历信息
     """
+    from core.utils.cache.manager import cache_manager, CacheType
+
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")
     current_date = now.strftime("%Y-%m-%d")
@@ -76,6 +78,13 @@ def get_lunar(query=None):
     # 如果 query 为 None，则使用默认文本
     if query is None:
         query = "默认查询干支年和农历日期"
+
+    # 尝试从缓存获取农历信息
+    lunar_cache_key = f"lunar_info_{current_date}"
+    cached_lunar_info = cache_manager.get(CacheType.LUNAR, lunar_cache_key)
+    if cached_lunar_info:
+        return ActionResponse(Action.REQLLM, cached_lunar_info, None)
+
     response_text = f"根据以下信息回应用户的查询请求，并提供与{query}相关的信息：\n"
 
     lunar = cnlunar.Lunar(now, godType="8char")
@@ -135,5 +144,8 @@ def get_lunar(query=None):
         + "忌: %s\n" % "、".join(lunar.badThing[:10])
         + "(默认返回干支年和农历日期；仅在要求查询宜忌信息时才返回本日宜忌)"
     )
+
+    # 缓存农历信息
+    cache_manager.set(CacheType.LUNAR, lunar_cache_key, response_text)
 
     return ActionResponse(Action.REQLLM, response_text, None)

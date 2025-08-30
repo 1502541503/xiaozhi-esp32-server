@@ -155,6 +155,9 @@ def parse_weather_info(soup):
 
 @register_function("get_weather", GET_WEATHER_FUNCTION_DESC, ToolType.SYSTEM_CTL)
 def get_weather(conn, location: str = None, lang: str = "zh_CN"):
+
+    from core.utils.cache.manager import cache_manager, CacheType
+
     # print(f"进入天气插件: {conn}")
     #api_host = conn.config["plugins"]["get_weather"].get("api_host", "pq5vxm8qxh.re.qweatherapi.com")
     api_host = "pq5vxm8qxh.re.qweatherapi.com"
@@ -175,6 +178,14 @@ def get_weather(conn, location: str = None, lang: str = "zh_CN"):
         else:
             # 若IP解析失败或无IP，使用默认位置
             location = default_location
+
+    # 尝试从缓存获取天气
+    weather_cache_key = f"full_weather_{location}_{lang}"
+    cached_weather_report = cache_manager.get(CacheType.WEATHER, weather_cache_key)
+    if cached_weather_report:
+        logger.info(f"从缓存中获取天气: {weather_cache_key}")
+        return ActionResponse(Action.REQLLM, cached_weather_report, None)
+
     city_info = fetch_city_info(location, api_key, api_host)
     if not city_info:
         return ActionResponse(
@@ -201,5 +212,8 @@ def get_weather(conn, location: str = None, lang: str = "zh_CN"):
 
     # 提示语
     weather_report += "\n（如需某一天的具体天气，请告诉我日期）"
+
+    # 缓存完整的天气报告
+    cache_manager.set(CacheType.WEATHER, weather_cache_key, weather_report)
 
     return ActionResponse(Action.REQLLM, weather_report, None)
