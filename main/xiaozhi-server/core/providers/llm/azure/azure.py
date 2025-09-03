@@ -138,40 +138,18 @@ class LLMProvider(LLMProviderBase):
                     tools=functions
                 )
 
-            first_frame = True
             for chunk in stream_response:
                 logger.bind(tag=TAG).info(f"chunk: {chunk}")
                 if getattr(chunk, "choices", None):
                     content = chunk.choices[0].delta.content
-                    if first_frame and content:
+
+                    if content:
                         asyncio.run_coroutine_threadsafe(
                             self.ws.send(json.dumps({
                                 "type": "tts",
-                                "state": "start",
-                                "session_id": session_id
-                            })),
-                            self.loop,
-                        )
-                        first_frame = False
-
-                    asyncio.run_coroutine_threadsafe(
-                        self.ws.send(json.dumps({
-                            "type": "tts",
-                            "state": "sentence_start",
-                            "session_id": session_id,
-                            "text": content
-                        })),
-                        self.loop,
-                    )
-
-                    finish_reason = getattr(chunk.choices[0], "finish_reason", None)
-
-                    if finish_reason == "stop":
-                        asyncio.run_coroutine_threadsafe(
-                            self.ws.send(json.dumps({
-                                "type": "tts",
-                                "state": "stop",
-                                "session_id": session_id
+                                "state": "sentence_start",
+                                "session_id": session_id,
+                                "text": content
                             })),
                             self.loop,
                         )
