@@ -42,7 +42,7 @@ class WebSocketServer:
         # 稳定性配置
         conn_config = self.config.get("conn", {})
         self.max_connections = conn_config.get("max_connections", 1000)
-        self.connection_timeout = conn_config.get("connection_timeout", 300)
+        self.connection_timeout = conn_config.get("connection_timeout", 1200)
         self.heartbeat_interval = conn_config.get("heartbeat_interval", 30)
         self.max_message_size = conn_config.get("max_message_size", 1048576)
 

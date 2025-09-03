@@ -40,6 +40,7 @@ async def handleTextMessage(conn, message):
             # 需要测试能否马上停止
             #await handleAbortMessage(conn)
             # conn.audio_timeout_triggered = False
+
             conn.is_processing = False
             conn.server_ready = False
             conn.client_have_voice = True
@@ -192,3 +193,16 @@ async def handleTextMessage(conn, message):
             conn.logger.bind(tag=TAG).error(f"收到未知类型消息：{message}")
     except json.JSONDecodeError:
         await conn.websocket.send(message)
+
+async def restart_recognition(self, conn):
+    """打断后重启识别"""
+    await self._cleanup()  # 关闭旧的 ASR WebSocket
+    conn.asr_audio.clear()
+    conn.pcm_data.clear()
+    self.text = ""
+    self.last_audio_time = None
+    self.asr_end = False
+
+    # 马上开启新连接
+    await self._start_recognition(conn)
+    conn.logger.bind(tag=TAG).info("Abort后已开启新的ASR会话")

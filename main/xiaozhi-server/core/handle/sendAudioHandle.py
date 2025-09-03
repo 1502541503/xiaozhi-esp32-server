@@ -106,10 +106,10 @@ async def send_tts_message(conn, state, text=None):
         #         ),
         #     )
         # 清除服务端讲话状态
+        await conn.websocket.send(json.dumps(message))
         conn.clearSpeakStatus()
 
     # 发送消息到客户端
-    await conn.websocket.send(json.dumps(message))
 
 
 async def send_stt_message(conn, text):

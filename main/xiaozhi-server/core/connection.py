@@ -846,6 +846,22 @@ class ConnectionHandler:
                     imgUrl=imgurl
                 )
                 print(f"问答结束=={llm_responses}")
+
+                # asyncio.run_coroutine_threadsafe(
+                #     self.websocket.send(
+                #         json.dumps(
+                #             {
+                #                 "type": "llm",
+                #                 "text": llm_responses or "",
+                #                 "session_id": self.session_id,
+                #                 "tool_calls": chunk.choices[0].delta.tool_calls
+                #             }
+                #         )
+                #     ),
+                #     self.loop,
+                # )
+
+                # 直接遍历 generator，逐条发送给 websocket 客户端
                 # 判断如果本轮次是视觉识别，清除掉非系统会话记忆，防止会话异常
                 if imgurl:
                     self.dialogue.clear_user_msg()
@@ -890,6 +906,13 @@ class ConnectionHandler:
                     tools_call = None
                 if content is not None and len(content) > 0:
                     content_arguments += content
+                    # asyncio.run_coroutine_threadsafe(
+                    #     self.websocket.send(
+                    #         json.dumps({"type": "stt", "text": content, "session_id": self.session_id})
+                    #     ),
+                    #     self.loop,
+                    # )
+                    # print(f"content: {content}")
 
                 if not tool_call_flag and content_arguments.startswith("<tool_call>"):
                     # print("content_arguments", content_arguments)

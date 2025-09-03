@@ -1,3 +1,6 @@
+import asyncio
+import json
+
 import openai
 import asyncio
 from openai.types import CompletionUsage
@@ -189,9 +192,58 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
             stream = self.client.chat.completions.create(**params)
 
+            first_frame = True
             for chunk in stream:
+                print(f"{chunk}")
                 # 检查是否存在有效的choice且content不为空
                 if getattr(chunk, "choices", None):
+                    delta = chunk.choices[0].delta
+                    content = getattr(delta, "content", None)
+                    finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+                    # ===== 第一帧 =====
+                    # if first_frame and content:
+                    #     asyncio.run_coroutine_threadsafe(
+                    #         self.ws.send(json.dumps({
+                    #             "type": "tts",
+                    #             "state": "start",
+                    #             "session_id": session_id
+                    #         })),
+                    #         self.loop,
+                    #     )
+                    #     first_frame = False
+
+                    # ===== 中间内容帧 =====
+                    if content:
+                        asyncio.run_coroutine_threadsafe(
+                            self.ws.send(json.dumps({
+                                "type": "tts",
+                                "state": "sentence_start",
+                                "text": content,
+                                "session_id": session_id
+                            })),
+                            self.loop,
+                        )
+                        asyncio.run_coroutine_threadsafe(
+                            self.ws.send(json.dumps({
+                                "type": "tts",
+                                "state": "sentence_end",
+                                "text": content,
+                                "session_id": session_id
+                            })),
+                            self.loop,
+                        )
+
+                    # ===== 结束帧 =====
+                    # if finish_reason:
+                    #     asyncio.run_coroutine_threadsafe(
+                    #         self.ws.send(json.dumps({
+                    #             "type": "tts",
+                    #             "state": "stop",
+                    #             "session_id": session_id
+                    #         })),
+                    #         self.loop,
+                    #     )
+
                     yield chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls
                 # 存在 CompletionUsage 消息时，生成 Token 消耗 log
                 elif isinstance(getattr(chunk, 'usage', None), CompletionUsage):

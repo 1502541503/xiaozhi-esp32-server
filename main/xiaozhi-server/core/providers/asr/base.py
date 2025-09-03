@@ -131,10 +131,8 @@ class ASRProviderBase(ABC):
         raw_text, _ = await self.speech_to_text(
             asr_audio_task, conn.session_id, conn.audio_format
         )  # 确保ASR模块返回原始文本
-
         conn.logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
         text_len, _ = remove_punctuation_and_length(raw_text)
-
         if text_len <= 1:
             conn.logger.bind(tag=TAG).warning(f"识别结果过短（{text_len} 个字），跳过对话触发")
             await conn.websocket.send(json.dumps(
@@ -205,6 +203,7 @@ class ASRProviderBase(ABC):
         logger.bind(tag=ASRProviderBase.TAG).info(f"asr识别完成，保存音频文件路径: {file_path}")
 
         return file_path
+
 
     @abstractmethod
     async def speech_to_text(
