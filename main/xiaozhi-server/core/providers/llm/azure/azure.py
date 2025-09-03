@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import asyncio
 from openai import AzureOpenAI  # 改为导入 AzureOpenAI
@@ -136,11 +138,45 @@ class LLMProvider(LLMProviderBase):
                     tools=functions
                 )
 
+            first_frame = True
             for chunk in stream_response:
+                logger.bind(tag=TAG).info(f"chunk: {chunk}")
                 if getattr(chunk, "choices", None):
-                    yield chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls
-                    logger.bind(tag=TAG).info(
-                        f"LLM: {chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls}")
+                    content = chunk.choices[0].delta.content
+                    if first_frame and content:
+                        asyncio.run_coroutine_threadsafe(
+                            self.ws.send(json.dumps({
+                                "type": "tts",
+                                "state": "start",
+                                "session_id": session_id
+                            })),
+                            self.loop,
+                        )
+                        first_frame = False
+
+                    asyncio.run_coroutine_threadsafe(
+                        self.ws.send(json.dumps({
+                            "type": "tts",
+                            "state": "sentence_start",
+                            "session_id": session_id,
+                            "text": content
+                        })),
+                        self.loop,
+                    )
+
+                    finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+
+                    if finish_reason == "stop":
+                        asyncio.run_coroutine_threadsafe(
+                            self.ws.send(json.dumps({
+                                "type": "tts",
+                                "state": "stop",
+                                "session_id": session_id
+                            })),
+                            self.loop,
+                        )
+
+                    yield content, chunk.choices[0].delta.tool_calls
                 elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
                     usage_info = getattr(chunk, "usage", None)
                     logger.bind(tag=TAG).info(
