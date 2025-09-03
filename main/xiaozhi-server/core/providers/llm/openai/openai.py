@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+from sympy import false
+
 import openai
 import asyncio
 from openai.types import CompletionUsage
@@ -192,6 +194,8 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
             stream = self.client.chat.completions.create(**params)
 
+
+            first = True
             for chunk in stream:
                 print(f"{chunk}")
                 # 检查是否存在有效的choice且content不为空
@@ -201,6 +205,20 @@ class LLMProvider(LLMProviderBase):
 
                     # ===== 中间内容帧 =====
                     if content:
+
+                        # 发送start开始
+                        if first:
+                            asyncio.run_coroutine_threadsafe(
+                                self.ws.send(json.dumps({
+                                    "type": "tts",
+                                    "state": "start",
+                                    "session_id": session_id
+                                })),
+                                self.loop,
+                            )
+
+                            first = False
+
                         asyncio.run_coroutine_threadsafe(
                             self.ws.send(json.dumps({
                                 "type": "tts",

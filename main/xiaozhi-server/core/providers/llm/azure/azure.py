@@ -138,12 +138,27 @@ class LLMProvider(LLMProviderBase):
                     tools=functions
                 )
 
+            first = True
             for chunk in stream_response:
                 logger.bind(tag=TAG).info(f"chunk: {chunk}")
                 if getattr(chunk, "choices", None):
                     content = chunk.choices[0].delta.content
 
                     if content:
+
+                        # 发送start开始
+                        if first:
+                            asyncio.run_coroutine_threadsafe(
+                                self.ws.send(json.dumps({
+                                    "type": "tts",
+                                    "state": "start",
+                                    "session_id": session_id
+                                })),
+                                self.loop,
+                            )
+
+                            first = False
+
                         asyncio.run_coroutine_threadsafe(
                             self.ws.send(json.dumps({
                                 "type": "tts",
