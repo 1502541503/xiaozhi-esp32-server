@@ -129,7 +129,7 @@ class ASRProvider(ASRProviderBase):
     async def receive_audio(self, conn, audio, audio_have_voice):
         #print(f"进入阿里流式receive_audio。audio_have_voice={audio_have_voice}.self.is_processing={self.is_processing}")
         conn.asr_audio.append(audio)
-        conn.asr_audio = conn.asr_audio[-100:]
+        conn.asr_audio = conn.asr_audio[-500:]
         # if conn.client_abort:
         #     await self._cleanup()
         #     return
@@ -148,16 +148,17 @@ class ASRProvider(ASRProviderBase):
                 await self._cleanup()
                 return
 
-        if self.asr_ws and self.is_processing and self.server_ready:
+        if self.asr_ws and self.is_processing and self.server_ready and self.server_ready:
             try:
                 pcm_frame = self.decoder.decode(audio, 960)
                 await self.asr_ws.send(pcm_frame)
                 # === 写入保存文件 ===、
                 # if self.audio_file:
                 # === 缓存 PCM 数据 ===
-                if not hasattr(conn, "pcm_data"):
-                    conn.pcm_data = []
                 conn.pcm_data.append(pcm_frame)
+                # if not hasattr(conn, "pcm_data"):
+                #     conn.pcm_data = []
+                # conn.pcm_data.append(pcm_frame)
 
             except Exception as e:
                 logger.bind(tag=TAG).warning(f"发送音频失败: {str(e)}")
@@ -249,8 +250,8 @@ class ASRProvider(ASRProviderBase):
                         # last_result_time = time.time()
 
                         # 发送缓存音频
-                        if conn.asr_audio and not self.last_audio_time:
-                            for cached_audio in conn.asr_audio[-100:]:
+                        if conn.asr_audio:
+                            for cached_audio in conn.asr_audio[-500:]:
                                 try:
                                     pcm_frame = self.decoder.decode(cached_audio, 960)
                                     await self.asr_ws.send(pcm_frame)
@@ -302,23 +303,6 @@ class ASRProvider(ASRProviderBase):
                         self.silence_frames_sent += 1
                         logger.info(f"补静音第{self.silence_frames_sent}次 (400ms)")
                         continue
-                    # if last_result_time is None:
-                    #     # 连接刚建立，没音频，不处理
-                    #     continue
-                    # #logger.bind(tag=TAG).info("超过2秒无新最终结果，主动结束识别，并没文字")
-                    # if now - last_result_time > 1.0:
-                    #     if self.text:
-                    #         logger.bind(tag=TAG).info("超过2秒无新最终结果，主动结束识别")
-                    #         conn.reset_vad_states()
-                    #         await self.safe_handle_voice_stop(conn, None)
-                    #         last_result_time = None
-                    #         # === 保存完整 PCM 数据到 wav ===
-                    #         if hasattr(conn, "pcm_data") and conn.pcm_data:
-                    #             if not self.delete_audio_file:
-                    #                 file_path = self.save_audio_to_file(conn.pcm_data, session_id=conn.session_id)
-                    #                 logger.info(f"已保存音频: {file_path}")
-                    #             conn.pcm_data.clear()
-                    #     break
                     continue
                 except websockets.exceptions.ConnectionClosed:
                     break
