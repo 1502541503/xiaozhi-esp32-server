@@ -524,6 +524,12 @@
                         <label for="flag">固件标记:</label>
                         <input type="text" id="flag" value="" placeholder="请输入固件标记">
                     </div>
+
+                    <div class="config-item">
+                        <label for="isAiOnline">联网搜索:</label>
+                        <input type="checkbox" id="isAiOnline">
+                    </div>
+
                     <div class="config-item">
                         <label for="deviceName">设备名称:</label>
                         <input type="text" id="deviceName" value="Web测试设备" placeholder="设备名称">
@@ -1425,68 +1431,8 @@
                 return;
             }
 
-            // 先检查OTA状态
-            // log('正在检查OTA状态...', 'info');
-            // const otaUrl = document.getElementById('otaUrl').value.trim();
-
             try {
-                //     const otaResponse = await fetch(otaUrl, {
-                //         method: 'POST',
-                //         headers: {
-                //             'Content-Type': 'application/json',
-                //             'Device-Id': config.deviceId
-                //         },
-                //         body: JSON.stringify({
-                //             "version": 0,
-                //             "uuid": "",
-                //             "application": {
-                //                 "name": "xiaozhi-web-test",
-                //                 "version": "1.0.0",
-                //                 "compile_time": "2025-04-16 10:00:00",
-                //                 "idf_version": "4.4.3",
-                //                 "elf_sha256": "1234567890abcdef1234567890abcdef1234567890abcdef"
-                //             },
-                //             "ota": {
-                //                 "label": "xiaozhi-web-test",
-                //             },
-                //             "board": {
-                //                 "type": "xiaozhi-web-test",
-                //                 "ssid": "xiaozhi-web-test",
-                //                 "rssi": 0,
-                //                 "channel": 0,
-                //                 "ip": "192.168.1.1",
-                //                 "mac": config.deviceMac
-                //             },
-                //             "flash_size": 0,
-                //             "minimum_free_heap_size": 0,
-                //             "mac_address": config.deviceMac,
-                //             "chip_model_name": "",
-                //             "chip_info": {
-                //                 "model": 0,
-                //                 "cores": 0,
-                //                 "revision": 0,
-                //                 "features": 0
-                //             },
-                //             "partition_table": [
-                //                 {
-                //                     "label": "",
-                //                     "type": 0,
-                //                     "subtype": 0,
-                //                     "address": 0,
-                //                     "size": 0
-                //                 }
-                //             ]
-                //         })
-                //     });
-                //
-                //     if (!otaResponse.ok) {
-                //         throw new Error(`OTA检查失败: ${otaResponse.status} ${otaResponse.statusText}`);
-                //     }
-                //
-                //     const otaResult = await otaResponse.json();
-                //     log(`OTA检查结果: ${JSON.stringify(otaResult)}`, 'info');
-
-                log('OTA检查通过，开始连接WebSocket...', 'success');
+                log('开始连接WebSocket...', 'success');
                 document.getElementById('otaStatus').textContent = 'ota已连接';
                 document.getElementById('otaStatus').style.color = 'green';
             } catch (error) {
@@ -1502,6 +1448,7 @@
             connUrl.searchParams.append('device-id', config.deviceId);
             connUrl.searchParams.append('bleName', config.bleName);
             connUrl.searchParams.append('flag', config.flag);
+            connUrl.searchParams.append('isAiOnline', config.isAiOnline);
             connUrl.searchParams.append('client-id', config.clientId);
             connUrl.searchParams.append('authorization', "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj");
             connUrl.searchParams.append('Accept-Language', document.getElementById('languageSelect').value);
@@ -1536,18 +1483,6 @@
                 }
                 //打断按钮
                 document.getElementById('abortButton').disabled = false;
-
-                // 如果有现有会话ID，尝试恢复
-                if (currentSessionId) {
-                    const resumeMessage = {
-                        type: 'resume',
-                        session_id: currentSessionId,
-                        device_id: config.deviceId,
-                        timestamp: Date.now()
-                    };
-                    websocket.send(JSON.stringify(resumeMessage));
-                    log('尝试恢复现有会话', 'info');
-                }
 
             };
 
@@ -2706,12 +2641,26 @@
         const deviceMac = document.getElementById('deviceMac').value.trim();
         const bleName = document.getElementById('bleName').value.trim();
         const flag = document.getElementById('flag').value.trim();
+        const isAiOnline = document.getElementById('isAiOnline').checked;
+
+        console.log('获取的配置值:', {
+            deviceId: deviceMac,
+            deviceName: document.getElementById('deviceName').value.trim(),
+            deviceMac: deviceMac,
+            bleName: bleName,
+            flag: flag,
+            isAiOnline: isAiOnline,
+            clientId: document.getElementById('clientId').value.trim(),
+            token: document.getElementById('token').value.trim()
+        });
+
         return {
             deviceId: deviceMac,  // 使用MAC地址作为deviceId
             deviceName: document.getElementById('deviceName').value.trim(),
             deviceMac: deviceMac,
             bleName: bleName,
             flag: flag,
+            isAiOnline: isAiOnline,
             clientId: document.getElementById('clientId').value.trim(),
             token: document.getElementById('token').value.trim()
         };
