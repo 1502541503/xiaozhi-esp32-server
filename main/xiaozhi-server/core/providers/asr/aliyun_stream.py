@@ -148,7 +148,7 @@ class ASRProvider(ASRProviderBase):
                 await self._cleanup()
                 return
 
-        if self.asr_ws and self.is_processing and self.server_ready and self.server_ready:
+        if self.asr_ws and self.is_processing and self.server_ready:
             try:
                 pcm_frame = self.decoder.decode(audio, 960)
                 await self.asr_ws.send(pcm_frame)
@@ -250,8 +250,9 @@ class ASRProvider(ASRProviderBase):
                         # last_result_time = time.time()
 
                         # 发送缓存音频
+                        #print(f"asr_audio===={conn.asr_audio}")
                         if conn.asr_audio:
-                            for cached_audio in conn.asr_audio[-500:]:
+                            for cached_audio in conn.asr_audio[-300:]:
                                 try:
                                     pcm_frame = self.decoder.decode(cached_audio, 960)
                                     await self.asr_ws.send(pcm_frame)
@@ -276,6 +277,7 @@ class ASRProvider(ASRProviderBase):
                         if text:
                             self.text = text
                             conn.reset_vad_states()
+                            conn.asr_audio.clear()
                             print(f"是否保存asr:{self.delete_audio_file}")
                             # === 保存完整 PCM 数据到 wav ===
                             if hasattr(conn, "pcm_data") and conn.pcm_data:
@@ -314,8 +316,8 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"结果转发失败: {str(e)}")
         finally:
             print(f"是否清理资源{last_result_time}")
-            if last_result_time:
-                await self._cleanup()
+            #if last_result_time:
+            await self._cleanup()
 
     async def _cleanup(self):
         """清理资源"""
