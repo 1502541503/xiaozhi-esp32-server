@@ -4,10 +4,15 @@ import httpx
 import asyncio
 from openai import AzureOpenAI  # 改为导入 AzureOpenAI
 from openai.types import CompletionUsage
+
 from config.logger import setup_logging
 from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
 from core.utils.util import check_model_key
 from core.providers.llm.base import LLMProviderBase
+from core.handle.functionHandler import FunctionHandler
+
+
+from plugins_func.register import all_function_registry
 
 TAG = __name__
 logger = setup_logging()
@@ -24,6 +29,7 @@ class LLMProvider(LLMProviderBase):
         self.headers = None
         self.ws = None
         self.loop = asyncio.get_event_loop()
+        self.isAiOnline = None
 
         # 移除 base_url/url 处理，使用 endpoint
         timeout = config.get("timeout", 300)
@@ -118,9 +124,12 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).error(f"Error in response generation: {e}")
 
     def response_with_functions(self, session_id, dialogue, functions=None, imgUrl=None):
+        if functions is None:
+            functions = []
         try:
             deployment_name = self.deployment_name
             stream_response = None
+
             if imgUrl:
                 deployment_name = "gpt4o"
                 dialogue = self.vllm_chat_response(dialogue, imgUrl)
@@ -131,52 +140,22 @@ class LLMProvider(LLMProviderBase):
                     # 视觉识别不调用工具方法
                 )
             else:
+
+                if self.isAiOnline == True:
+                    func = all_function_registry.get("get_web_search").description
+                    functions.append(func)
+
                 stream_response = self.client.chat.completions.create(
                     model=deployment_name,  # 使用 deployment_name
                     messages=dialogue,
                     stream=True,
-                    tools=functions
+                    tools=functions,
+                    temperature=0.7,
+                    top_p=0.9
                 )
 
-            first = True
-            for chunk in stream_response:
-                logger.bind(tag=TAG).info(f"chunk: {chunk}")
-                if getattr(chunk, "choices", None):
-                    content = chunk.choices[0].delta.content
-
-                    if content:
-
-                        # 发送start开始
-                        if first:
-                            asyncio.run_coroutine_threadsafe(
-                                self.ws.send(json.dumps({
-                                    "type": "tts",
-                                    "state": "start",
-                                    "session_id": session_id
-                                })),
-                                self.loop,
-                            )
-
-                            first = False
-
-                        asyncio.run_coroutine_threadsafe(
-                            self.ws.send(json.dumps({
-                                "type": "tts",
-                                "state": "sentence_start",
-                                "session_id": session_id,
-                                "text": content
-                            })),
-                            self.loop,
-                        )
-
-                    yield content, chunk.choices[0].delta.tool_calls
-                elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
-                    usage_info = getattr(chunk, "usage", None)
-                    logger.bind(tag=TAG).info(
-                        f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
-                        f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
-                        f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
-                    )
+            # 使用封装的流式处理方法
+            yield from self.process_stream_with_punctuation(stream_response, session_id)
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"LLM处理异常: {e}")
@@ -186,6 +165,106 @@ class LLMProvider(LLMProviderBase):
                 self.loop
             )
             return None
+
+
+    def process_stream_with_punctuation(self, stream_response, session_id):
+        """
+        处理流式响应，按标点符号分割返回数据
+
+        Args:
+            stream_response: OpenAI流式响应对象
+            session_id: 会话ID
+
+        Yields:
+            tuple: (内容, 工具调用)
+        """
+        first = True
+        buffer = ""  # 添加缓冲区
+        # 中文标点符号列表
+        punctuation_marks = {'。', '！', '？', '，', '；', '：', '、', '.', '!', '?', ',', ';'}
+        tool_calls = None
+
+        for chunk in stream_response:
+            logger.bind(tag=TAG).info(f"chunk: {chunk}")
+
+            if getattr(chunk, "choices", None):
+                content = chunk.choices[0].delta.content
+                logger.bind(tag=TAG).info(f"tool_calls: {chunk.choices[0].delta.tool_calls}")
+                tool_calls = chunk.choices[0].delta.tool_calls
+
+                if tool_calls:
+                    print(f"检测到工具直接返回:{tool_calls}")
+                    yield content, tool_calls
+
+                if content:
+                    buffer += content  # 累积到缓冲区
+
+                    # 检查缓冲区中是否有标点符号
+                    for i, char in enumerate(buffer):
+                        if char in punctuation_marks:
+                            # 找到标点符号，分割到该位置
+                            to_send = buffer[:i + 1]  # 包含标点符号
+                            buffer = buffer[i + 1:]  # 剩余内容留在缓冲区
+
+                            # 发送start开始
+                            if first:
+                                asyncio.run_coroutine_threadsafe(
+                                    self.ws.send(json.dumps({
+                                        "type": "tts",
+                                        "state": "start",
+                                        "session_id": session_id
+                                    })),
+                                    self.loop,
+                                )
+                                first = False
+
+                            # 发送包含标点的完整句子
+                            asyncio.run_coroutine_threadsafe(
+                                self.ws.send(json.dumps({
+                                    "type": "tts",
+                                    "state": "sentence_start",
+                                    "session_id": session_id,
+                                    "text": to_send
+                                })),
+                                self.loop,
+                            )
+
+                            yield to_send, tool_calls
+                            break  # 处理完一个标点后跳出循环
+
+            elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
+                usage_info = getattr(chunk, "usage", None)
+                logger.bind(tag=TAG).info(
+                    f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
+                    f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
+                    f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
+                )
+
+        # 处理最后剩余的内容（如果没有标点符号）
+        if buffer:
+            if first:
+                asyncio.run_coroutine_threadsafe(
+                    self.ws.send(json.dumps({
+                        "type": "tts",
+                        "state": "start",
+                        "session_id": session_id
+                    })),
+                    self.loop,
+                )
+
+            asyncio.run_coroutine_threadsafe(
+                self.ws.send(json.dumps({
+                    "type": "tts",
+                    "state": "sentence_start",
+                    "session_id": session_id,
+                    "text": buffer
+                })),
+                self.loop,
+            )
+
+            print(f"处理最后剩余的内容：{buffer}")
+
+            yield buffer, tool_calls
 
     def vllm_chat_response(self, dialogue, imgUrl):
         domain_mapping = {
@@ -234,3 +313,4 @@ class LLMProvider(LLMProviderBase):
     def init_args(self, **args):
         self.headers = args.get("headers")
         self.ws = args.get("ws")
+        self.conn = args.get("conn")

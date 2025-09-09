@@ -62,12 +62,12 @@ class LLMProvider(LLMProviderBase):
         self.vllm_system_prompt = """
         你是一个专为智能眼镜设计的实时视觉识别助手。
         你的任务是通过眼镜摄像头获取用户眼前的实时画面，进行快速、精准、生动的环境理解，并通过语音向用户播报关键信息。
-
+        
         回答要：
         1. 简洁流畅，控制在3-5句话，适合语音播报。
         2. 不仅描述“看到的物体”，还能补充一些有趣的小知识或背景（如植物习性、饮料特点、品牌风格）。
         3. 语气自然、灵动，像一个贴心又懂点小百科的伙伴。
-
+        
         示例输出：
         - “你正站在一个明亮的办公室里，桌上有电脑和咖啡杯，看起来像是典型的工作场景。”
         - “门上贴着一张便条，上面写着‘快递已取’，像是室友留的小提醒。”
@@ -192,51 +192,10 @@ class LLMProvider(LLMProviderBase):
                 params["extra_body"] = {"enable_search": True}
 
             logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
-            stream = self.client.chat.completions.create(**params)
+            stream_response = self.client.chat.completions.create(**params)
 
-            first = True
-            for chunk in stream:
-                print(f"{chunk}")
-                # 检查是否存在有效的choice且content不为空
-                if getattr(chunk, "choices", None):
-                    delta = chunk.choices[0].delta
-                    content = getattr(delta, "content", None)
-
-                    # ===== 中间内容帧 =====
-                    if content:
-
-                        # 发送start开始
-                        if first:
-                            asyncio.run_coroutine_threadsafe(
-                                self.ws.send(json.dumps({
-                                    "type": "tts",
-                                    "state": "start",
-                                    "session_id": session_id
-                                })),
-                                self.loop,
-                            )
-
-                            first = False
-
-                        asyncio.run_coroutine_threadsafe(
-                            self.ws.send(json.dumps({
-                                "type": "tts",
-                                "state": "sentence_start",
-                                "text": content,
-                                "session_id": session_id
-                            })),
-                            self.loop,
-                        )
-
-                    yield chunk.choices[0].delta.content, chunk.choices[0].delta.tool_calls
-                # 存在 CompletionUsage 消息时，生成 Token 消耗 log
-                elif isinstance(getattr(chunk, 'usage', None), CompletionUsage):
-                    usage_info = getattr(chunk, 'usage', None)
-                    logger.bind(tag=TAG).info(
-                        f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
-                        f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
-                        f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
-                    )
+            # 使用封装的流式处理方法
+            yield from self.process_stream_with_punctuation(stream_response, session_id)
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"问答异常: {e}")
@@ -246,6 +205,105 @@ class LLMProvider(LLMProviderBase):
                 self.loop
             )
             return None
+
+    def process_stream_with_punctuation(self, stream_response, session_id):
+        """
+        处理流式响应，按标点符号分割返回数据
+
+        Args:
+            stream_response: OpenAI流式响应对象
+            session_id: 会话ID
+
+        Yields:
+            tuple: (内容, 工具调用)
+        """
+        first = True
+        buffer = ""  # 添加缓冲区
+        # 中文标点符号列表
+        punctuation_marks = {'。', '！', '？', '，', '；', '：', '、', '.', '!', '?', ',', ';'}
+        tool_calls = None
+
+        for chunk in stream_response:
+            logger.bind(tag=TAG).info(f"chunk: {chunk}")
+
+            if getattr(chunk, "choices", None):
+                content = chunk.choices[0].delta.content
+                logger.bind(tag=TAG).info(f"tool_calls: {chunk.choices[0].delta.tool_calls}")
+                tool_calls = chunk.choices[0].delta.tool_calls
+
+                if tool_calls:
+                    print(f"检测到工具直接返回:{tool_calls}")
+                    yield content, tool_calls
+
+                if content:
+                    buffer += content  # 累积到缓冲区
+
+                    # 检查缓冲区中是否有标点符号
+                    for i, char in enumerate(buffer):
+                        if char in punctuation_marks:
+                            # 找到标点符号，分割到该位置
+                            to_send = buffer[:i + 1]  # 包含标点符号
+                            buffer = buffer[i + 1:]  # 剩余内容留在缓冲区
+
+                            # 发送start开始
+                            if first:
+                                asyncio.run_coroutine_threadsafe(
+                                    self.ws.send(json.dumps({
+                                        "type": "tts",
+                                        "state": "start",
+                                        "session_id": session_id
+                                    })),
+                                    self.loop,
+                                )
+                                first = False
+
+                            # 发送包含标点的完整句子
+                            asyncio.run_coroutine_threadsafe(
+                                self.ws.send(json.dumps({
+                                    "type": "tts",
+                                    "state": "sentence_start",
+                                    "session_id": session_id,
+                                    "text": to_send
+                                })),
+                                self.loop,
+                            )
+
+                            yield to_send, tool_calls
+                            break  # 处理完一个标点后跳出循环
+
+            elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
+                usage_info = getattr(chunk, "usage", None)
+                logger.bind(tag=TAG).info(
+                    f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
+                    f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
+                    f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
+                )
+
+        # 处理最后剩余的内容（如果没有标点符号）
+        if buffer:
+            if first:
+                asyncio.run_coroutine_threadsafe(
+                    self.ws.send(json.dumps({
+                        "type": "tts",
+                        "state": "start",
+                        "session_id": session_id
+                    })),
+                    self.loop,
+                )
+
+            asyncio.run_coroutine_threadsafe(
+                self.ws.send(json.dumps({
+                    "type": "tts",
+                    "state": "sentence_start",
+                    "session_id": session_id,
+                    "text": buffer
+                })),
+                self.loop,
+            )
+
+            print(f"处理最后剩余的内容：{buffer}")
+
+            yield buffer, tool_calls
 
     def init_args(self, **args):
         self.headers = args.get("headers")

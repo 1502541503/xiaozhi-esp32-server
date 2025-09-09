@@ -202,9 +202,7 @@ class ConnectionHandler:
 
                     lon_raw = ble_info.get("longitude")
                     lat_raw = ble_info.get("latitude")
-                    self.isAiOnline = ble_info.get("isAiOnline", None)
 
-                    print(f"是否开启联网搜索{self.isAiOnline}")
                     # 处理空字符串或None
                     if lon_raw not in (None, ""):
                         try:
@@ -246,6 +244,11 @@ class ConnectionHandler:
                         ble_info.setdefault("bleName", bleName[0])
                     if flag := query_params.get("flag"):
                         ble_info.setdefault("flag", flag[0])
+                    if isAiOnline := query_params.get("isAiOnline"):
+                        ble_info.setdefault("isAiOnline", isAiOnline[0].lower() == 'true')
+
+            self.isAiOnline = ble_info.get("isAiOnline", None)
+            print(f"是否开启联网搜索{self.isAiOnline}")
 
             if self.headers.get("authorization") is None:
                 self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
