@@ -59,27 +59,25 @@ class FunctionHandler:
 
     def register_nessary_functions(self):
         """注册必要的函数"""
-        #self.function_registry.register_function("handle_exit_intent")
-        #self.function_registry.register_function("plugin_loader")
         self.function_registry.register_function("get_time")
-        self.function_registry.register_function("get_lunar")
         self.function_registry.register_function("get_weather")
-        #self.function_registry.register_function("get_periphery")
-        lang = _parse_accept_language(self.conn.headers.get("accept-language", "zh")).lower()
-        # if "," in lang:
-        #     lang = lang.split(",")[0]
-
         if self.conn.isAiOnline:
             self.function_registry.register_function("get_web_search")
 
-        print(f"收到的语言是：{lang}")
-        if lang=="zh":
-            self.function_registry.register_function("get_instruction")
-        else:
-            self.function_registry.register_function("get_instruction_en")
 
+        #self.function_registry.register_function("handle_exit_intent")
+        #self.function_registry.register_function("plugin_loader")
 
-
+        # self.function_registry.register_function("get_lunar")
+        #self.function_registry.register_function("get_periphery")
+        # lang = _parse_accept_language(self.conn.headers.get("accept-language", "zh")).lower()
+        # if "," in lang:
+        #     lang = lang.split(",")[0]
+        # print(f"收到的语言是：{lang}")
+        # if lang=="zh":
+        #     self.function_registry.register_function("get_instruction")
+        # else:
+        #     self.function_registry.register_function("get_instruction_en")
         # self.function_registry.register_function("get_instruction")
         # self.function_registry.register_function("handle_speaker_volume_or_screen_brightness")
 

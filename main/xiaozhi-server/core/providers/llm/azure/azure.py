@@ -180,8 +180,8 @@ class LLMProvider(LLMProviderBase):
         """
         first = True
         buffer = ""  # 添加缓冲区
-        # 中文标点符号列表
-        punctuation_marks = {'。', '！', '？', '，', '；', '：', '、', '.', '!', '?', ',', ';'}
+        # 标记是否已经处理完前10个字符
+        first_10_chars_processed = False
         tool_calls = None
 
         for chunk in stream_response:
@@ -197,14 +197,12 @@ class LLMProvider(LLMProviderBase):
                     yield content, tool_calls
 
                 if content:
-                    buffer += content  # 累积到缓冲区
-
-                    # 检查缓冲区中是否有标点符号
-                    for i, char in enumerate(buffer):
-                        if char in punctuation_marks:
-                            # 找到标点符号，分割到该位置
-                            to_send = buffer[:i + 1]  # 包含标点符号
-                            buffer = buffer[i + 1:]  # 剩余内容留在缓冲区
+                    if not first_10_chars_processed:
+                        # 前10个字符缓存处理
+                        buffer += content
+                        if len(buffer) >= 10:
+                            first_10_chars_processed = True
+                            send_buffer = buffer[:len(buffer)]
 
                             # 发送start开始
                             if first:
@@ -218,19 +216,43 @@ class LLMProvider(LLMProviderBase):
                                 )
                                 first = False
 
-                            # 发送包含标点的完整句子
+                            # 发送前10个字符
                             asyncio.run_coroutine_threadsafe(
                                 self.ws.send(json.dumps({
                                     "type": "tts",
                                     "state": "sentence_start",
                                     "session_id": session_id,
-                                    "text": to_send
+                                    "text": send_buffer
                                 })),
                                 self.loop,
                             )
 
-                            yield to_send, tool_calls
-                            break  # 处理完一个标点后跳出循环
+                            yield send_buffer, tool_calls
+                    else:
+                        # 10个字符之后的内容直接输出
+                        if first:
+                            asyncio.run_coroutine_threadsafe(
+                                self.ws.send(json.dumps({
+                                    "type": "tts",
+                                    "state": "start",
+                                    "session_id": session_id
+                                })),
+                                self.loop,
+                            )
+                            first = False
+
+                        # 发送当前内容
+                        asyncio.run_coroutine_threadsafe(
+                            self.ws.send(json.dumps({
+                                "type": "tts",
+                                "state": "sentence_start",
+                                "session_id": session_id,
+                                "text": content
+                            })),
+                            self.loop,
+                        )
+
+                        yield content, tool_calls
 
             elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
                 usage_info = getattr(chunk, "usage", None)
@@ -240,8 +262,8 @@ class LLMProvider(LLMProviderBase):
                     f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
                 )
 
-        # 处理最后剩余的内容（如果没有标点符号）
-        if buffer:
+        # 处理最后剩余的内容
+        if buffer and first_10_chars_processed is False:
             if first:
                 asyncio.run_coroutine_threadsafe(
                     self.ws.send(json.dumps({
