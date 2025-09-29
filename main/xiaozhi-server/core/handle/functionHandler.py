@@ -99,8 +99,9 @@ class FunctionHandler:
             function_name = function_call_data["name"]
             funcItem = self.get_function(function_name)
             if not funcItem:
+                print(f"没有找到对应的函数: {function_name}")
                 return ActionResponse(
-                    action=Action.NOTFOUND, result="没有找到对应的函数", response=""
+                    action=Action.NONE, result="没有找到对应的函数", response=""
                 )
             func = funcItem.func
             arguments = function_call_data["arguments"]
@@ -118,8 +119,9 @@ class FunctionHandler:
             elif funcItem.type == ToolType.CHANGE_SYS_PROMPT:
                 return func(conn, **arguments)
             else:
+                print(f"没有找到对应的函数: {function_name}")
                 return ActionResponse(
-                    action=Action.NOTFOUND, result="没有找到对应的函数", response=""
+                    action=Action.NONE, result="没有找到对应的函数", response=""
                 )
         except Exception as e:
             self.conn.logger.bind(tag=TAG).error(f"处理function call错误: {e}")

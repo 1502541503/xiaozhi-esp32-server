@@ -15,6 +15,7 @@ import websockets
 
 from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
 from core.handle.mcpHandle import call_mcp_tool
+from core.handle.sendAudioHandle import send_tts_message
 from core.utils.util import (
     extract_json_from_string,
     check_vad_update,
@@ -145,6 +146,9 @@ class ConnectionHandler:
         # iot相关变量
         self.iot_descriptors = {}
         self.func_handler = None
+
+        # 标记连接是否来自MQTT
+        self.conn_from_mqtt_gateway = False
 
         self.cmd_exit = self.config["exit_commands"]
         self.max_cmd_length = 0
@@ -932,6 +936,24 @@ class ConnectionHandler:
             else:
                 content = response
             if content is not None and len(content) > 0:
+
+                #指令跳过语音合成
+                if content is not None:
+                    short_cmd_prefixes = [
+                        "0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07",
+                        "0x08", "0x09", "0x10", "0x11", "0x0A", "0x0B",
+                        "0x0C", "0x0D", "0x0E", "0x0F", "0x0G", "0x00"
+                    ]
+                    clean_text = content.strip()
+                    if any(clean_text.startswith(cmd) for cmd in short_cmd_prefixes):
+                        self.dialogue.clear_user_msg()
+                        message = {"type": "tts", "state": "stop", "session_id": self.session_id}
+                        asyncio.run_coroutine_threadsafe(
+                            self.websocket.send(json.dumps(message)),
+                            self.loop,
+                        )
+                        return None
+
                 if not tool_call_flag:
                     response_message.append(content)
                     if text_index == 0:
