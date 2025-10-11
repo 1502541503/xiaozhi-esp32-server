@@ -141,10 +141,6 @@ class LLMProvider(LLMProviderBase):
                 )
             else:
 
-                if self.isAiOnline == True:
-                    func = all_function_registry.get("get_web_search").description
-                    functions.append(func)
-
                 stream_response = self.client.chat.completions.create(
                     model=deployment_name,  # 使用 deployment_name
                     messages=dialogue,

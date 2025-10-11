@@ -61,15 +61,20 @@ class FunctionHandler:
         """注册必要的函数"""
         self.function_registry.register_function("get_time")
         self.function_registry.register_function("get_weather")
-        if self.conn.isAiOnline:
+
+        # 判断是国外gpt模型并并且开启了联网搜索才注册
+        if (
+                self.conn.isAiOnline
+                and hasattr(self.conn.llm, "deployment_name")
+                and "gpt" in self.conn.llm.deployment_name
+        ):
             self.function_registry.register_function("get_web_search")
 
-
-        #self.function_registry.register_function("handle_exit_intent")
-        #self.function_registry.register_function("plugin_loader")
+        # self.function_registry.register_function("handle_exit_intent")
+        # self.function_registry.register_function("plugin_loader")
 
         # self.function_registry.register_function("get_lunar")
-        #self.function_registry.register_function("get_periphery")
+        # self.function_registry.register_function("get_periphery")
         # lang = _parse_accept_language(self.conn.headers.get("accept-language", "zh")).lower()
         # if "," in lang:
         #     lang = lang.split(",")[0]
@@ -84,7 +89,7 @@ class FunctionHandler:
     def register_config_functions(self):
         """注册配置中的函数,可以不同客户端使用不同的配置"""
         for func in self.config["Intent"][self.config["selected_module"]["Intent"]].get(
-            "functions", []
+                "functions", []
         ):
             self.function_registry.register_function(func)
 
@@ -110,8 +115,8 @@ class FunctionHandler:
                 f"调用函数: {function_name}, 参数: {arguments}"
             )
             if (
-                funcItem.type == ToolType.SYSTEM_CTL
-                or funcItem.type == ToolType.IOT_CTL
+                    funcItem.type == ToolType.SYSTEM_CTL
+                    or funcItem.type == ToolType.IOT_CTL
             ):
                 return func(conn, **arguments)
             elif funcItem.type == ToolType.WAIT:

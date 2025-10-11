@@ -80,6 +80,9 @@ class Dialogue:
 
         system_content = system_message.content
 
+        # 追加角色设定-系统时间（用于一些实时问题场景）
+        system_content += f"\n当前时间是：{datetime.now()}\n"
+
         # 追加角色设定-用户经纬度（用于查询用户当前天气）
         if lon and lat:
             system_content += f"\n用户所在的经纬度location：{lon},{lat}\n"
