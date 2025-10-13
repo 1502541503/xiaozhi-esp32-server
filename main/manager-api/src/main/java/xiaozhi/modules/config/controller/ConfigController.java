@@ -39,7 +39,7 @@ public class ConfigController {
     public Result<Object> getAgentModels(@Valid @RequestBody AgentModelsDTO dto) {
         // 效验数据
         ValidatorUtils.validateEntity(dto);
-        Object models = configService.getAgentModels(dto.getMacAddress(), dto.getSelectedModule());
+        Object models = configService.getAgentModels(dto);
         return new Result<Object>().ok(models);
     }
 

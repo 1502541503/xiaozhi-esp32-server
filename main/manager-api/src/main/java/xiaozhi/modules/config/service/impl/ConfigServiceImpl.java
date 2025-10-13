@@ -2,8 +2,11 @@ package xiaozhi.modules.config.service.impl;
 
 import java.util.*;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +25,7 @@ import xiaozhi.modules.agent.service.AgentPluginMappingService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
 import xiaozhi.modules.api.IotSolutionClient;
+import xiaozhi.modules.config.dto.AgentModelsDTO;
 import xiaozhi.modules.config.service.ConfigService;
 import xiaozhi.modules.device.dao.DeviceDao;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -40,6 +44,7 @@ import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
 @Service
 @AllArgsConstructor
 public class ConfigServiceImpl implements ConfigService {
+    private static final Logger log = LoggerFactory.getLogger(ConfigServiceImpl.class);
     private final SysParamsService sysParamsService;
     private final DeviceService deviceService;
     private final ModelConfigService modelConfigService;
@@ -98,23 +103,28 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
-    public Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule) {
+    public Map<String, Object> getAgentModels(AgentModelsDTO dto) {
         // 根据MAC地址查找设备
-        DeviceEntity device = deviceService.getDeviceByMacAddress(macAddress);
-        if (device == null) {
-            // 如果设备，去redis里看看有没有需要连接的设备
-            String cachedCode = deviceService.geCodeByDeviceId(macAddress);
-            if (StringUtils.isNotBlank(cachedCode)) {
-                throw new RenException(ErrorCode.OTA_DEVICE_NEED_BIND, cachedCode);
-            }
-            throw new RenException(ErrorCode.OTA_DEVICE_NOT_FOUND, "not found device");
-        }
+        DeviceEntity device = deviceService.getDeviceByMacAddress(dto.getMacAddress());
 
         // 获取智能体信息
-        AgentEntity agent = agentService.getAgentById(device.getAgentId());
-        if (agent == null) {
-            throw new RenException("智能体未找到");
+        AgentEntity agent;
+        if (device == null) {
+            log.info(dto.getMacAddress() + ",device not found");
+
+            String country = dto.getCountry();
+            String agentIdCn = smaProperties.getAgentId_cn();
+            String agentIdOther = smaProperties.getAgentId_other();
+            if (StrUtil.equalsAny(country, "China", "CN", "Hong Kong")) {
+                agent = agentService.getAgentById(agentIdCn);
+            } else {
+                agent = agentService.getAgentById(agentIdOther);
+            }
+            if (agent == null) throw new RenException("智能体未找到");
+        } else {
+            agent = agentService.getAgentById(device.getAgentId());
         }
+
         // 获取音色信息
         String voice = null;
         TimbreDetailsVO timbre = timbreService.get(agent.getTtsVoiceId());
@@ -131,12 +141,13 @@ public class ConfigServiceImpl implements ConfigService {
         Integer chatHistoryConf = agent.getChatHistoryConf();
         if (agent.getMemModelId() != null && agent.getMemModelId().equals(Constant.MEMORY_NO_MEM)) {
             chatHistoryConf = Constant.ChatHistoryConfEnum.IGNORE.getCode();
-        } else if (agent.getMemModelId() != null
-                && !agent.getMemModelId().equals(Constant.MEMORY_NO_MEM)
-                && agent.getChatHistoryConf() == null) {
+        } else if (agent.getMemModelId() != null && agent.getChatHistoryConf() == null) {
             chatHistoryConf = Constant.ChatHistoryConfEnum.RECORD_TEXT_AUDIO.getCode();
         }
         result.put("chat_history_conf", chatHistoryConf);
+
+        Map<String, String> selectedModule = dto.getSelectedModule();
+
         // 如果客户端已实例化模型，则不返回
         String alreadySelectedVadModelId = (String) selectedModule.get("VAD");
         if (alreadySelectedVadModelId != null && alreadySelectedVadModelId.equals(agent.getVadModelId())) {
@@ -251,7 +262,7 @@ public class ConfigServiceImpl implements ConfigService {
 
     /**
      * 构建模块配置
-     * 
+     *
      * @param prompt        提示词
      * @param voice         音色
      * @param vadModelId    VAD模型ID
@@ -278,8 +289,8 @@ public class ConfigServiceImpl implements ConfigService {
             boolean isCache) {
         Map<String, String> selectedModule = new HashMap<>();
 
-        String[] modelTypes = { "VAD", "ASR", "TTS", "Memory", "Intent", "LLM", "VLLM" };
-        String[] modelIds = { vadModelId, asrModelId, ttsModelId, memModelId, intentModelId, llmModelId, vllmModelId };
+        String[] modelTypes = {"VAD", "ASR", "TTS", "Memory", "Intent", "LLM", "VLLM"};
+        String[] modelIds = {vadModelId, asrModelId, ttsModelId, memModelId, intentModelId, llmModelId, vllmModelId};
         String intentLLMModelId = null;
         String memLocalShortLLMModelId = null;
 
@@ -356,27 +367,29 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Override
     public Result<Object> getMacAuthorize(String mac, Integer platform, String authorization) {
-        if(authorization.isEmpty()){
+        if (authorization.isEmpty()) {
             return new Result<>().error("Authorization empty");
         }
-        if(!("Bearer "+smaProperties.getToken()).equals(authorization)){
+        if (!("Bearer " + smaProperties.getToken()).equals(authorization)) {
             return new Result<>().error("Authorization mismatched");
         }
 
 
         DeviceEntity device = deviceService.getDeviceByMacAddress(mac);
-        if(device==null){
-            ResponseWrapper<Boolean> clientDevice = iotSolutionClient.getMac(mac,platform);
-            if(clientDevice.getCode()!=0){
+        if (device == null) {
+            ResponseWrapper<Boolean> clientDevice = iotSolutionClient.getMac(mac, platform);
+            if (clientDevice.getCode() != 0) {
                 return new Result<>().error("No MAC address found");
-            }else if (!clientDevice.getData()){
+            } else if (!clientDevice.getData()) {
                 return new Result<>().error("Mac unauthorized");
             }
             device = new DeviceEntity();
-            device.setAgentId(smaProperties.getAgentId()); //眼镜智能体
+
+            device.setAgentId(smaProperties.getAgentId_cn()); //眼镜智能体
+
             device.setMacAddress(mac);
             SysUserDTO userDTO = sysUserService.getByUsername("admin");
-            saveDeviceActivation(device.getAgentId(),mac,userDTO.getId());
+            saveDeviceActivation(device.getAgentId(), mac, userDTO.getId());
         }
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("mac", mac);
