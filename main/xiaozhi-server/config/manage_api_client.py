@@ -165,7 +165,7 @@ def get_server_config() -> Optional[Dict]:
 
 
 def get_agent_models(
-        mac_address: str, client_id: str, selected_module: Dict
+        mac_address: str, client_id: str, selected_module: Dict,ble_info
 ) -> Optional[Dict]:
     """获取代理模型配置"""
     return ManageApiClient._instance._execute_request(
@@ -174,7 +174,8 @@ def get_agent_models(
         json={
             "macAddress": mac_address,
             "clientId": client_id,
-            "selectedModule": selected_module
+            "selectedModule": selected_module,
+            "country": ble_info.get("country", "China"),
         },
     )
 

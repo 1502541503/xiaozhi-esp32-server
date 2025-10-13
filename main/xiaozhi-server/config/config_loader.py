@@ -72,10 +72,10 @@ def get_config_from_api(config):
     return config_data
 
 
-def get_private_config_from_api(config, device_id, client_id):
+def get_private_config_from_api(config, device_id, client_id,ble_info):
     """从Java API获取私有配置"""
     #print(f"=======调用get_private_config_from_api==========={config}===={device_id}===={client_id}==={config['selected_module']}")
-    return get_agent_models(device_id, client_id, config["selected_module"])
+    return get_agent_models(device_id, client_id, config["selected_module"],ble_info)
 
 
 def get_mac_api(authorization,mac):

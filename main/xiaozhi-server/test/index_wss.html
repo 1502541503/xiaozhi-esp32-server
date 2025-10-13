@@ -531,6 +531,14 @@
                     </div>
 
                     <div class="config-item">
+                        <label for="countrySelect">国家选择:</label>
+                        <select id="countrySelect">
+                            <option value="China">国内</option>
+                            <option value="Other">其它</option>
+                        </select>
+                    </div>
+
+                    <div class="config-item">
                         <label for="deviceName">设备名称:</label>
                         <input type="text" id="deviceName" value="Web测试设备" placeholder="设备名称">
                     </div>
@@ -1452,6 +1460,7 @@
             connUrl.searchParams.append('client-id', config.clientId);
             connUrl.searchParams.append('authorization', "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj");
             connUrl.searchParams.append('Accept-Language', document.getElementById('languageSelect').value);
+            connUrl.searchParams.append('country', document.getElementById('countrySelect').value);
 
             log(`正在连接: ${connUrl.toString()}`, 'info');
             websocket = new WebSocket(connUrl.toString());

@@ -91,6 +91,7 @@ class ConnectionHandler:
 
         self.lon = None
         self.lat = None
+        self.ble_info = None
 
         # 客户端状态相关
         self.client_abort = False
@@ -203,6 +204,7 @@ class ConnectionHandler:
             if ble_info_str:
                 try:
                     ble_info = json.loads(ble_info_str)
+                    self.ble_info = ble_info
 
                     lon_raw = ble_info.get("longitude")
                     lat_raw = ble_info.get("latitude")
@@ -250,6 +252,8 @@ class ConnectionHandler:
                         ble_info.setdefault("flag", flag[0])
                     if isAiOnline := query_params.get("isAiOnline"):
                         ble_info.setdefault("isAiOnline", isAiOnline[0].lower() == 'true')
+                    if country := query_params.get("country"):
+                        ble_info.setdefault("country", country[0])
 
             self.isAiOnline = ble_info.get("isAiOnline", None)
             print(f"是否开启联网搜索{self.isAiOnline}")
@@ -328,7 +332,7 @@ class ConnectionHandler:
             await self.websocket.send(json.dumps(self.welcome_msg))
 
             # 获取差异化配置
-            self._initialize_private_config()
+            self._initialize_private_config(ble_info)
             # 异步初始化
             self.executor.submit(self._initialize_components)
 
@@ -557,7 +561,7 @@ class ConnectionHandler:
 
         return asr
 
-    def _initialize_private_config(self):
+    def _initialize_private_config(self, ble_info):
         """如果是从配置文件获取，则进行二次实例化"""
         if not self.read_config_from_api:
             return
@@ -568,6 +572,7 @@ class ConnectionHandler:
                 self.config,
                 self.headers.get("device-id"),
                 self.headers.get("client-id", self.headers.get("device-id")),
+                ble_info
             )
             self.logger.bind(tag=TAG).info(
                 f"初始化配置===device-id：{self.headers.get('device-id')}"
@@ -937,7 +942,7 @@ class ConnectionHandler:
                 content = response
             if content is not None and len(content) > 0:
 
-                #指令跳过语音合成
+                # 指令跳过语音合成
                 if content is not None:
                     short_cmd_prefixes = [
                         "0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07",
