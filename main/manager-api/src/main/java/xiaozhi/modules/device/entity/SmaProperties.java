@@ -10,7 +10,9 @@ import org.springframework.stereotype.Component;
 public class SmaProperties {
 
     private String token;
-
-    private String agentId;
+    // 国内智能体
+    private String agentId_cn;
+    // 其它海外智能体
+    private String agentId_other;
 
 }
