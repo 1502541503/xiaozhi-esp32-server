@@ -22,6 +22,13 @@ class TTSProvider(TTSProviderBase):
 
     async def text_to_speak(self, text, output_file):
         try:
+
+            try:
+                if (voice_value := self.conn.ble_info.get("voice")) is not None:
+                    self.voice = voice_value
+            except (AttributeError, KeyError):
+                pass  # 处理 ble_info 不存在或 get 方法异常的情况
+
             communicate = edge_tts.Communicate(text, voice=self.voice)
             if output_file:
                 # 确保目录存在并创建空文件

@@ -539,6 +539,15 @@
                     </div>
 
                     <div class="config-item">
+                        <label for="voiceSelect">音色选择:</label>
+                        <select id="voiceSelect">
+                            <option value="">默认</option>
+                            <option value="zh-CN-XiaoxiaoNeural">晓晓</option>
+                            <option value="zh-CN-YunjianNeural">云健</option>
+                        </select>
+                    </div>
+
+                    <div class="config-item">
                         <label for="deviceName">设备名称:</label>
                         <input type="text" id="deviceName" value="Web测试设备" placeholder="设备名称">
                     </div>
@@ -1461,6 +1470,7 @@
             connUrl.searchParams.append('authorization', "Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj");
             connUrl.searchParams.append('Accept-Language', document.getElementById('languageSelect').value);
             connUrl.searchParams.append('country', document.getElementById('countrySelect').value);
+            connUrl.searchParams.append('voice', document.getElementById('voiceSelect').value);
 
             log(`正在连接: ${connUrl.toString()}`, 'info');
             websocket = new WebSocket(connUrl.toString());

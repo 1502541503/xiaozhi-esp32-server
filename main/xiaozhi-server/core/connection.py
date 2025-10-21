@@ -254,6 +254,8 @@ class ConnectionHandler:
                         ble_info.setdefault("isAiOnline", isAiOnline[0].lower() == 'true')
                     if country := query_params.get("country"):
                         ble_info.setdefault("country", country[0])
+                    if voice := query_params.get("voice"):
+                        ble_info.setdefault("voice", voice[0])
 
             self.isAiOnline = ble_info.get("isAiOnline", None)
             print(f"是否开启联网搜索{self.isAiOnline}")
@@ -335,6 +337,8 @@ class ConnectionHandler:
             self._initialize_private_config(ble_info)
             # 异步初始化
             self.executor.submit(self._initialize_components)
+
+            self.ble_info = ble_info
 
             try:
                 async for message in self.websocket:
