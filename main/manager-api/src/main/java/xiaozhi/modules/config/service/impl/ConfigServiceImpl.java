@@ -107,11 +107,11 @@ public class ConfigServiceImpl implements ConfigService {
         // 根据MAC地址查找设备
         DeviceEntity device = deviceService.getDeviceByMacAddress(dto.getMacAddress());
 
+        log.info("DeviceInfo: {}", dto);
+
         // 获取智能体信息
         AgentEntity agent;
         if (device == null) {
-            log.info(dto.getMacAddress() + ",device not found");
-
             String country = dto.getCountry();
             String agentIdCn = smaProperties.getAgentId_cn();
             String agentIdOther = smaProperties.getAgentId_other();
