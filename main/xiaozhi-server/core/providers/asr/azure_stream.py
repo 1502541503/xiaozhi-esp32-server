@@ -204,7 +204,7 @@ class ASRProvider(ASRProviderBase):
         """处理中间识别结果"""
         result = evt.result
         if result.text:
-            logger.bind(tag=TAG).debug(f"中间识别结果: {result.text}")
+            logger.bind(tag=TAG).info(f"中间识别结果: {result.text}")
 
     def _on_session_started(self, evt: speechsdk.SessionEventArgs):
         """会话开始事件"""
