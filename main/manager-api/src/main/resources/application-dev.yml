@@ -12,7 +12,7 @@ spring:
     druid:
       #MySQL
       driver-class-name: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://rm-j6ca3vf35i70jyufpzo.mysql.rds.aliyuncs.com/xiaozhi_backup2?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&nullCatalogMeansCurrent=true
+      url: jdbc:mysql://rm-j6ca3vf35i70jyufpzo.mysql.rds.aliyuncs.com/xiaozhi_backup3?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&nullCatalogMeansCurrent=true
       username: smawatch_test
       password: smawatch@2022
       initial-size: 10
@@ -63,4 +63,5 @@ iot:
 
 sma:
   token: uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj
-  agentId: 59f343e9a88c42b19af9783bec7272a6
+  agentId_cn: 59f343e9a88c42b19af9783bec7272a6
+  agentId_other: 624955d9282841dfb20a12ebd255c132

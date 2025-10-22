@@ -1,7 +1,9 @@
 package xiaozhi.modules.config.service;
 
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.config.dto.AgentModelsDTO;
+import xiaozhi.modules.device.entity.BleInfo;
 
 import java.util.Map;
 
@@ -13,6 +15,8 @@ public interface ConfigService {
      * @return 配置信息
      */
     Object getConfig(Boolean isCache);
+
+    AgentEntity getAgentTTSModelByHeader(BleInfo bleInfo);
 
     /**
      * 获取智能体模型配置

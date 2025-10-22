@@ -63,4 +63,5 @@ iot:
 
 sma:
   token: uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj
-  agentId: 59f343e9a88c42b19af9783bec7272a6
+  agentId_cn: 59f343e9a88c42b19af9783bec7272a6
+  agentId_other: 89db982ad86d4f6185aef2b5a5071b22

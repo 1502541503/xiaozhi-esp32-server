@@ -13,6 +13,7 @@ public class BleInfo {
     private String mac;
     private String bleVersion;
     private String city;
+    private String country;
     private boolean isAiOnline;
     private String latitude;
     private String longitude;

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import lombok.AllArgsConstructor;
 import xiaozhi.common.constant.Constant;
-import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
@@ -28,6 +27,7 @@ import xiaozhi.modules.api.IotSolutionClient;
 import xiaozhi.modules.config.dto.AgentModelsDTO;
 import xiaozhi.modules.config.service.ConfigService;
 import xiaozhi.modules.device.dao.DeviceDao;
+import xiaozhi.modules.device.entity.BleInfo;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.entity.ResponseWrapper;
 import xiaozhi.modules.device.entity.SmaProperties;
@@ -100,6 +100,30 @@ public class ConfigServiceImpl implements ConfigService {
         redisUtils.set(RedisKeys.getServerConfigKey(), result);
 
         return result;
+    }
+
+    @Override
+    public AgentEntity getAgentTTSModelByHeader(BleInfo bleInfo) {
+        // 根据MAC地址查找设备
+        DeviceEntity device = deviceService.getDeviceByMacAddress(bleInfo.getMac());
+        log.info("DeviceInfo: {}", device);
+        // 获取智能体信息
+        AgentEntity agent;
+        if (device == null) {
+            String country = bleInfo.getCountry();
+            String agentIdCn = smaProperties.getAgentId_cn();
+            String agentIdOther = smaProperties.getAgentId_other();
+            if (StrUtil.equalsAny(country, "China", "CN", "Hong Kong")) {
+                agent = agentService.getAgentById(agentIdCn);
+            } else {
+                agent = agentService.getAgentById(agentIdOther);
+            }
+            if (agent == null) throw new RenException("智能体未找到");
+        } else {
+            agent = agentService.getAgentById(device.getAgentId());
+        }
+        log.info("{} 使用智能体: {}", bleInfo.getMac(), agent);
+        return agent;
     }
 
     @Override

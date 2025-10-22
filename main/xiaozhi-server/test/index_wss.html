@@ -41,31 +41,51 @@
             margin-bottom: 30px;
         }
 
+        /* 区块样式优化 */
         .section {
-            margin-bottom: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            background-color: #f9f9f9;
+            margin-bottom: 25px;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: var(--background-secondary);
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .section:hover {
+            box-shadow: var(--shadow);
         }
 
         .section h2 {
             margin-top: 0;
-            color: #444;
+            color: var(--text-color);
             font-size: 18px;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 10px 0;
+            padding: 0 0 15px 0;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 15px;
         }
 
         .section h2 .toggle-button {
             margin-left: auto;
-            padding: 4px 12px;
-            font-size: 12px;
-            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 6px;
             cursor: pointer;
-            height: 28px;
-            line-height: 20px;
+            height: auto;
+            line-height: normal;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .section h2 .toggle-button:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         .device-info {
@@ -108,51 +128,93 @@
             margin-top: 10px;
         }
 
-        button {
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            background-color: #4285f4;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.2s;
+        /* 统一的表单元素样式 */
+        :root {
+            --primary-color: #4285f4;
+            --primary-hover: #3367d6;
+            --border-color: #e0e0e0;
+            --border-focus: #4285f4;
+            --text-color: #333;
+            --text-secondary: #666;
+            --background-color: #fff;
+            --background-secondary: #f9f9f9;
+            --success-color: #0f9d58;
+            --error-color: #db4437;
+            --warning-color: #f4b400;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
         }
 
-        button:hover {
-            background-color: #3367d6;
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: var(--transition);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
         }
 
         button:disabled {
-            background-color: #cccccc;
+            background-color: #e0e0e0;
+            color: #999;
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
-        #serverUrl,
-        #otaUrl {
+        /* 输入框、选择框统一样式 */
+        input, select, textarea {
             flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            transition: var(--transition);
+            outline: none;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+        }
+
+        input::placeholder {
+            color: #999;
+        }
+
+        /* 特殊输入框样式保持一致 */
+        #serverUrl, #otaUrl, #messageInput, #nfcCardId {
+            /* 移除flex-grow，允许内联width设置生效 */
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
         }
 
         .message-input {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-        }
-
-        #messageInput {
-            flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        #nfcCardId {
-            flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            align-items: center;
         }
 
         .conversation {
@@ -378,53 +440,140 @@
             height: calc(100% - 65px);
         }
 
+        /* 配置项样式优化 */
         .config-item {
             display: flex;
             align-items: center;
-            margin-bottom: 8px;
             width: 100%;
+            padding: 5px;
+            background-color: var(--background-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .config-item:hover {
+            border-color: #d0d0d0;
+            box-shadow: var(--shadow);
         }
 
         .config-item label {
-            width: 100px;
+            width: 120px;
             text-align: right;
-            margin-right: 10px;
-            color: #666;
+            margin-right: 15px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            flex-shrink: 0;
         }
 
-        .config-item input {
+        .config-item input,
+        .config-item select {
             flex-grow: 1;
-            padding: 6px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        /* 复选框特殊样式，使其靠近左边 */
+        .config-item input[type="checkbox"] {
+            flex-grow: 0;
+            width: auto;
+            padding: 5px;
+            margin-left: 0;
         }
 
+        /* 优化包含多个元素的配置项 */
+        .config-item > div {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+            gap: 8px;
+        }
+
+        .config-item > div select {
+            flex: 1;
+        }
+
+        /* 音色控制区域样式 */
+        .voice-controls {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+            gap: 8px;
+        }
+
+        .voice-controls select {
+            flex: 1;
+        }
+
+        /* 图标按钮样式 */
+        .icon-button {
+            padding: 10px;
+            min-width: 40px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        /* 次要按钮样式 */
+        .secondary-button {
+            background-color: #4285f4;
+            color: white;
+        }
+
+        .secondary-button:hover {
+            background-color: #d0d0d0;
+            color: white;
+        }
+
+        /* 状态消息样式 */
+        .status-message {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: none;
+            padding: 8px 12px;
+            background-color: var(--background-secondary);
+            border-radius: 4px;
+            margin-left: 135px;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        /* 控制面板样式优化 */
         .control-panel {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            margin-top: 10px;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 5px;
+            background-color: var(--background-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
 
+        /* 连接控制区域样式优化 */
         .connection-controls {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            /* align-items: center; */
+            gap: 15px;
             width: 100%;
         }
 
-        .connection-controls input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            /* min-width: 200px; */
+        /* 为serverUrl和serverSelect设置更具体的样式，允许内联width属性生效 */
+        .connection-controls input#serverUrl, .connection-controls select#serverSelect {
+            /* 移除flex属性，允许内联width设置生效 */
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
         }
 
         .connection-controls button {
             white-space: nowrap;
-            padding: 8px 15px;
+            padding: 10px 20px;
         }
 
         .connection-status {
@@ -486,7 +635,7 @@
             <h2 style="margin-bottom: 0;">
                 设备配置
             </h2>
-            <div style="display: flex;justify-content: space-between">
+            <div style="display: none;justify-content: space-between">
                     <span class="device-info">
                         <span>MAC: <strong id="displayMac">00:11:22:33:44:55</strong></span>
                         <span>客户端: <strong id="displayClient">web_test_client</strong></span>
@@ -540,22 +689,28 @@
 
                     <div class="config-item">
                         <label for="voiceSelect">音色选择:</label>
-                        <select id="voiceSelect">
-                            <option value="">默认</option>
-                            <option value="zh-CN-XiaoxiaoNeural">晓晓</option>
-                            <option value="zh-CN-YunjianNeural">云健</option>
-                        </select>
+                        <div class="voice-controls">
+                            <select id="voiceSelect">
+                                <option value="">默认</option>
+                            </select>
+                            <button id="playVoiceButton" class="icon-button" title="试听选中的音色">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                            </button>
+                            <button id="voiceFlush" class="secondary-button">刷新</button>
+                        </div>
                     </div>
 
-                    <div class="config-item">
+                    <div class="config-item" style="display:none">
                         <label for="deviceName">设备名称:</label>
                         <input type="text" id="deviceName" value="Web测试设备" placeholder="设备名称">
                     </div>
-                    <div class="config-item">
+                    <div class="config-item" style="display:none">
                         <label for="clientId">客户端ID:</label>
                         <input type="text" id="clientId" value="web_test_client" placeholder="客户端ID">
                     </div>
-                    <div class="config-item">
+                    <div class="config-item" style="display:none">
                         <label for="token">认证Token:</label>
                         <input type="text" id="token" value="your-token1" placeholder="认证Token">
                     </div>
@@ -575,15 +730,14 @@
                 <div style="display: flex;gap: 20px;">
                     <!--                        <input type="text" id="otaUrl" value="https://ai-dev.iot-solution.net/xiaozhi/ota/"-->
                     <!--                            placeholder="OTA服务器地址" />-->
-                    <label for="serverSelect">环境选择:</label>
-                    <select id="serverSelect" onchange="document.getElementById('serverUrl').value=this.value">
+                    <select id="serverSelect" onchange="document.getElementById('serverUrl').value=this.value" style="width: 20%;">
                         <option value="ws://127.0.0.1:8000/xiaozhi/v1/" selected>本地环境</option>
                         <option value="wss://ai-dev.iot-solution.net/xiaozhi/v1/">dev环境</option>
                         <option value="wss://ai-c.iot-solution.net/xiaozhi/v1/">生产环境</option>
                     </select>
 
 
-                    <input type="text" id="serverUrl" value="ws://127.0.0.1:8000/xiaozhi/v1/"
+                    <input type="text" id="serverUrl" value="ws://127.0.0.1:8000/xiaozhi/v1/" style="width: 70%;"
                            placeholder="WebSocket服务器地址"/>
                 </div>
                 <div style="display: flex;justify-content: center;gap: 20px;">
@@ -1704,10 +1858,127 @@
 
     let imageUrl = '';
 
+    // 加载音色列表
+    async function loadVoiceList() {
+        const countrySelect = document.getElementById('countrySelect');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const selectedCountry = countrySelect.value;
+        
+        // 清空现有选项，保留默认选项
+        voiceSelect.innerHTML = '<option value="zh-CN-XiaoxiaoNeural" data-voice-name="EdgeTTS女声-晓晓" data-audio-url="https://api-oss.iot-solution.net/var-www/tts-voice/zh-CN-XiaoxiaoNeural.mp3">默认</option>';
+        
+        try {
+            // 显示加载状态
+            const originalText = voiceFlush.textContent;
+            voiceFlush.disabled = true;
+            
+            // 发送POST请求获取音色列表
+            const apiUrl = 'http://127.0.0.1:8002/xiaozhi/config/ttsVoices'; // 替换为实际的API地址
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 可以添加其他必要的头信息，如认证token
+                    'Authorization': 'Bearer b6d0c6b3-9cf5-4011-88ce-160e7ac0331c',
+                    'BleInfo': "{'mac':'"+document.getElementById('deviceMac').value.trim()+"','country':'"+document.getElementById('countrySelect').value +"'}"
+                },
+            });
+
+            console.log('API响应数据:', response);
+            
+            if (!response.ok) {
+                throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+            }
+            
+            // 解析响应数据
+            const data = await response.json();
+
+            if(data.code != 0) {
+                log(`API请求失败: ${data.msg}`, 'error');
+                throw new Error(`API请求失败: ${data.msg}`);
+            }
+            
+            // 假设API返回的格式为 { voices: [{id: "...", name: "..."}] }
+            const voices = Array.isArray(data.data) ? data.data : [];
+            
+            // 添加音色选项
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.ttsVoice;
+                    option.textContent = voice.name;
+                    // 存储音色相关信息，包括音频链接
+                    option.dataset.voiceName = voice.name;
+                    option.dataset.audioUrl = voice.voiceDemo || ''; // 假设音频链接字段名为audioUrl
+                    voiceSelect.appendChild(option);
+                });
+            
+            log(`已从API加载${voices.length}个音色选项 (国家: ${selectedCountry})`, 'success');
+            
+        } finally {
+            // 恢复按钮状态
+            voiceFlush.textContent = '刷新';
+            voiceFlush.disabled = false;
+        }
+    }
+
+    // 播放音色试听（使用音色数据中已有的音频链接）
+    async function playVoicePreview() {
+        const voiceSelect = document.getElementById('voiceSelect');
+        const selectedVoice = voiceSelect.value;
+        const selectedOption = voiceSelect.options[voiceSelect.selectedIndex];
+        const playButton = document.getElementById('playVoiceButton');
+        
+        // 如果没有选择音色或选择的是默认音色
+        if (!selectedVoice) {
+            setTimeout(() => {
+                previewElement.style.display = 'none';
+            }, 2000);
+            return;
+        }
+        
+        try {
+            // 从选项中获取音频链接
+            const audioUrl = selectedOption.dataset.audioUrl;
+            
+            // 检查是否有音频链接
+            if (!audioUrl) {
+                setTimeout(() => {
+                    previewElement.style.display = 'none';
+                }, 2000);
+                return;
+            }
+            
+            // 创建音频对象
+            const audio = new Audio(audioUrl);
+            
+            audio.onerror = (error) => {
+                throw new Error(`音频播放失败: ${error.message || '未知错误'}`);
+            };
+            
+            // 开始播放
+            await audio.play();
+            
+        } catch (error) {
+            console.error('试听失败:', error);
+        }
+    }
+
     // 初始化事件监听器
     function initEventListeners() {
         connectButton.addEventListener('click', connectToServer);
         document.getElementById('authTestButton').addEventListener('click', testAuthentication);
+        
+        // 国家选择事件监听
+        const countrySelect = document.getElementById('countrySelect');
+        countrySelect.addEventListener('change', loadVoiceList);
+        
+        // 刷新按钮事件监听
+        const voiceFlushButton = document.getElementById('voiceFlush');
+        voiceFlushButton.addEventListener('click', loadVoiceList);
+        
+        // 试听按钮事件监听
+        const playVoiceButton = document.getElementById('playVoiceButton');
+        playVoiceButton.addEventListener('click', playVoicePreview);
 
         // 设备配置面板折叠/展开
         const toggleButton = document.getElementById('toggleConfig');
@@ -2193,6 +2464,9 @@
         }).catch(error => {
             log(`Opus解码器预加载失败: ${error.message}，将在需要时重试`, 'warning');
         });
+        
+        // 初始化加载音色列表
+        loadVoiceList();
     }
 
     // PCM录音处理器代码 - 会被注入到AudioWorklet中
