@@ -1873,7 +1873,7 @@
             voiceFlush.disabled = true;
             
             // 发送POST请求获取音色列表
-            const apiUrl = 'http://127.0.0.1:8002/xiaozhi/config/ttsVoices'; // 替换为实际的API地址
+            const apiUrl = 'https://ai-dev.iot-solution.net/xiaozhi/config/ttsVoices'; // 替换为实际的API地址
             const response = await fetch(apiUrl, {
                 method: 'GET',
                 headers: {
