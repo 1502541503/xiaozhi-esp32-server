@@ -127,7 +127,7 @@ class ASRProvider(ASRProviderBase):
         await super().open_audio_channels(conn)
 
     async def receive_audio(self, conn, audio, audio_have_voice):
-        #print(f"进入阿里流式receive_audio。audio_have_voice={audio_have_voice}.self.is_processing={self.is_processing}")
+        # print(f"进入阿里流式receive_audio。audio_have_voice={audio_have_voice}.self.is_processing={self.is_processing}")
         conn.asr_audio.append(audio)
         conn.asr_audio = conn.asr_audio[-500:]
         # if conn.client_abort:
@@ -165,8 +165,8 @@ class ASRProvider(ASRProviderBase):
                 await self._cleanup()
 
     async def _start_recognition(self, conn):
-        #print("开始识别了")
-        #self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
+        # print("开始识别了")
+        # self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
         if self.is_processing:  # 防止重复进入
             logger.bind(tag=TAG).warning("已有识别进行中，忽略新的 start")
             return
@@ -217,7 +217,7 @@ class ASRProvider(ASRProviderBase):
 
     async def _forward_results(self, conn):
         """转发识别结果"""
-        #last_result_time = time.time()
+        # last_result_time = time.time()
         last_result_time = None
         try:
             while self.asr_ws and not conn.stop_event.is_set():
@@ -250,7 +250,7 @@ class ASRProvider(ASRProviderBase):
                         # last_result_time = time.time()
 
                         # 发送缓存音频
-                        #print(f"asr_audio===={conn.asr_audio}")
+                        # print(f"asr_audio===={conn.asr_audio}")
                         if conn.asr_audio:
                             for cached_audio in conn.asr_audio[-300:]:
                                 try:
@@ -265,6 +265,10 @@ class ASRProvider(ASRProviderBase):
                         text = payload.get("result", "")
                         logger.bind(tag=TAG).warning(f"中间返回结果: {text}")
                         if text:
+                            await conn.websocket.send(
+                                json.dumps(
+                                    {"type": "stt2", "state": "sentence_start", "text": text, "session_id": conn.session_id}))
+
                             self.asr_end = True
                             self.text = text
                             last_result_time = time.time()
@@ -276,6 +280,11 @@ class ASRProvider(ASRProviderBase):
                         self.asr_end = True
                         if text:
                             self.text = text
+                            await conn.websocket.send(
+                                json.dumps(
+                                    {"type": "stt2", "state": "sentence_start", "text": text,
+                                     "session_id": conn.session_id}))
+
                             conn.reset_vad_states()
                             conn.asr_audio.clear()
                             print(f"是否保存asr:{self.delete_audio_file}")
@@ -316,7 +325,7 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"结果转发失败: {str(e)}")
         finally:
             print(f"是否清理资源{last_result_time}")
-            #if last_result_time:
+            # if last_result_time:
             await self._cleanup()
 
     async def _cleanup(self):
@@ -344,8 +353,7 @@ class ASRProvider(ASRProviderBase):
                 pass
             self.asr_ws = None
 
-
-    async def speech_to_text(self, opus_data, session_id, audio_format,language: str = None):
+    async def speech_to_text(self, opus_data, session_id, audio_format, language: str = None):
         """获取识别结果"""
         result = self.text
         self.text = ""
@@ -420,6 +428,7 @@ class ASRProvider(ASRProviderBase):
         # 清理
         self.is_processing = False
         self.server_ready = False
+
 
 def generate_silence(duration_ms=300, sample_rate=16000):
     """生成指定时长的静音 PCM"""

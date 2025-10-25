@@ -1,10 +1,13 @@
 import asyncio
+import json
 import time
 import os
 import uuid
+import numpy as np
 from typing import Optional
 import azure.cognitiveservices.speech as speechsdk
 
+from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
 from core.providers.asr.base import ASRProviderBase
 from config.logger import setup_logging
 from core.providers.asr.dto.dto import InterfaceType
@@ -41,6 +44,10 @@ class ASRProvider(ASRProviderBase):
 
         # 初始化SpeechConfig
         self.speech_config = speechsdk.SpeechConfig(self.api_key, self.region)
+
+        self.speech_config.set_property(
+            speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "1500"
+        )
 
         # 音频流配置
         self.stream_format = speechsdk.audio.AudioStreamFormat(samples_per_second=16000, bits_per_sample=16, channels=1)
@@ -157,6 +164,9 @@ class ASRProvider(ASRProviderBase):
     async def _start_recognition(self, conn):
         """启动Azure流式语音识别"""
         try:
+
+            self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn, timeout_seconds=2.5))
+
             # 启动识别
             self.result_text = ""
             self.session_started = False
@@ -172,6 +182,7 @@ class ASRProvider(ASRProviderBase):
     def _on_recognized(self, evt: speechsdk.SpeechRecognitionEventArgs):
         """处理最终识别结果"""
         result = evt.result
+        logger.bind(tag=TAG).info(f"on_recognized结束: {result}")
         if result.reason == speechsdk.ResultReason.RecognizedSpeech:
             if result.text:
                 self.result_text = result.text
@@ -205,6 +216,45 @@ class ASRProvider(ASRProviderBase):
         result = evt.result
         if result.text:
             logger.bind(tag=TAG).info(f"中间识别结果: {result.text}")
+            self._schedule_async_task(
+                self.conn.websocket.send(
+                    json.dumps({"type": "stt2", "text": result.text, "session_id": self.conn.session_id}))
+            )
+
+    async def _check_silence_timeout(self, conn, timeout_seconds=2.0):
+        """无音频输入超过 timeout_seconds，则结束识别"""
+        while self.is_processing:
+            await asyncio.sleep(0.1)  # 频率可以更高一些，减少延迟
+            now = time.time()
+            if self.last_audio_time is None:
+                # 如果还没收到过音频，等1秒后也结束
+                await asyncio.sleep(timeout_seconds)
+                logger.bind(tag=TAG).info("1秒内无音频输入，自动停止识别")
+                await self._stop_recognition(conn)
+                break
+            elif now - self.last_audio_time > timeout_seconds:
+                logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
+                if self.conn:
+                    await self.conn.websocket.send(
+                        WebSocketErrorManager.create_error_response(ErrorCode.ASR_NO_VOICE_ERROR, "静音超时终止")
+                    )
+                await self._stop_recognition(conn)
+                break
+
+    async def _stop_recognition(self, conn):
+        """手动停止识别流程"""
+        if self.recognizer:
+            try:
+                logger.bind(tag=TAG).info("超时停止并补发静音音频帧")
+                # 使用正确的方式调用实例方法
+                silence = self.generate_silence(2000)
+                # push_stream.write不是异步方法，不需要await
+                self.push_stream.write(silence)
+            except Exception as e:
+                logger.bind(tag=TAG).warning(f"停止识别过程中出错: {e}")
+        # 清理
+        self.is_processing = False
+        self.server_ready = False
 
     def _on_session_started(self, evt: speechsdk.SessionEventArgs):
         """会话开始事件"""
@@ -226,7 +276,7 @@ class ASRProvider(ASRProviderBase):
     def _on_session_stopped(self, evt: speechsdk.SessionEventArgs):
         """会话停止事件"""
         logger.bind(tag=TAG).info("Azure语音识别会话已停止")
-        self._cleanup()
+        self._schedule_async_task(self._cleanup())
 
     def _on_canceled(self, evt: speechsdk.SpeechRecognitionCanceledEventArgs):
         """识别取消事件"""
@@ -308,3 +358,8 @@ class ASRProvider(ASRProviderBase):
             logger.bind(tag=TAG).error(f"保存原始音频文件失败: {str(e)}")
             return None
 
+    def generate_silence(self, duration_ms=300, sample_rate=16000):
+        """生成指定时长的静音 PCM"""
+        num_samples = int(sample_rate * duration_ms / 1000)
+        silence = np.zeros(num_samples, dtype=np.int16)
+        return silence.tobytes()

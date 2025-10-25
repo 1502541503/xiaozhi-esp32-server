@@ -647,7 +647,7 @@
                 <div class="control-panel">
                     <div class="config-item">
                         <label for="deviceMac">设备MAC:</label>
-                        <input type="text" id="deviceMac" value="9E:34:34:E2:26:8F" placeholder="设备MAC地址">
+                        <input type="text" id="deviceMac" value="123" placeholder="设备MAC地址">
                     </div>
 
                     <div class="config-item">
@@ -690,7 +690,7 @@
                     <div class="config-item">
                         <label for="voiceSelect">音色选择:</label>
                         <div class="voice-controls">
-                            <select id="voiceSelect">
+                            <select id="voiceSelect" searchable>
                                 <option value="">默认</option>
                             </select>
                             <button id="playVoiceButton" class="icon-button" title="试听选中的音色">
@@ -1636,6 +1636,10 @@
                 log(`已连接到服务器: ${url}`, 'success');
                 connectionStatus.textContent = 'ws已连接';
                 connectionStatus.style.color = 'green';
+                
+                // 初始化消息累积变量
+                currentTTSMessage = null;
+                currentSTTMessage = null;
 
                 // 连接成功后发送hello消息
                 const res = await sendHelloMessage();
@@ -1682,7 +1686,11 @@
             };
 
 
-            websocket.onmessage = function (event) {
+            // 当前正在累积的消息元素
+                let currentTTSMessage = null;
+                let currentSTTMessage = null;
+                
+                websocket.onmessage = function (event) {
                 try {
                     // 检查是否为文本消息
                     if (typeof event.data === 'string') {
@@ -1693,17 +1701,33 @@
                         } else if (message.type === 'tts') {
                             // TTS状态消息
                             if (message.state === 'start') {
+                                // 重置相关变量
                                 ttsFirstFrameLogged = false; // 重置首帧标志
+                                currentTTSMessage = null; // 重置当前TTS消息
+                                currentSTTMessage = null; // 重置当前STT消息
                                 log('服务器开始发送语音', 'info');
                             } else if (message.state === 'sentence_start') {
 
                                 log(`服务器发送语音段: ${message.text}`, 'info');
                                 // 添加文本到会话记录
                                 if (message.text) {
-                                    addMessage(message.text);
+                                    // 检查是否有正在累积的TTS消息
+                                    if (!currentTTSMessage) {
+                                        // 创建新的TTS消息元素
+                                        currentTTSMessage = document.createElement('div');
+                                        currentTTSMessage.className = 'message server tts-response';
+                                        currentTTSMessage.textContent = message.text;
+                                        conversationDiv.appendChild(currentTTSMessage);
+                                    } else {
+                                        // 追加文本到现有TTS消息
+                                        currentTTSMessage.textContent += message.text;
+                                    }
+                                    conversationDiv.scrollTop = conversationDiv.scrollHeight;
                                 }
                             } else if (message.state === 'sentence_end') {
                                 log(`语音段结束: ${message.text}`, 'info');
+                                // 句子结束时重置当前TTS消息，准备下一个句子
+                                currentTTSMessage = null;
                             } else if (message.state === 'stop') {
                                 log('服务器语音传输结束', 'info');
                                 // 结束后更新UI状态
@@ -1716,15 +1740,31 @@
                         } else if (message.type === 'audio') {
                             // 音频控制消息
                             log(`收到音频控制消息: ${JSON.stringify(message)}`, 'info');
-                        } else if (message.type === 'stt') {
+                        }
+                        else if (message.type === 'stt') {
+                            console.log(`stt识别结果: ${message.text}`)
+                        }
+                        else if (message.type === 'stt2') {
                             // 语音识别结果
-                            log(`识别结果: ${message.text}`, 'info');
+                            log(`stt2识别结果: ${message.text}`, 'info');
+                            console.log(`stt2识别结果: ${message.text}`)
                             // 添加识别结果到会话记录
-                            addMessage(`[语音识别] ${message.text}`, true);
-                        } else if (message.type === 'llm') {
+                            if (!currentSTTMessage) {
+                                // 创建新的STT消息元素
+                                currentSTTMessage = document.createElement('div');
+                                currentSTTMessage.className = 'message user stt-response';
+                                currentSTTMessage.textContent = `[语音识别] ${message.text}`;
+                                conversationDiv.appendChild(currentSTTMessage);
+                            } else {
+                                // 更新现有STT消息
+                                currentSTTMessage.textContent = `[语音识别] ${message.text}`;
+                            }
+                            conversationDiv.scrollTop = conversationDiv.scrollHeight;
+                        }else if (message.type === 'llm') {
                             // 大模型回复
                             log(`大模型回复: ${message.text}`, 'info');
                             // 添加大模型回复到会话记录
+                            console.log(`llm大模型回复: ${message.text}`)
                             if (message.text && message.text !== '😊') {
                                 addMessage(message.text);
                             }
@@ -2002,13 +2042,6 @@
 
         // 初始更新显示值
         updateDisplayValues();
-
-        // 切换面板显示
-        <!--        toggleButton.addEventListener('click', () => {-->
-        <!--            const isExpanded = configPanel.classList.contains('expanded');-->
-        <!--            configPanel.classList.toggle('expanded');-->
-        <!--            toggleButton.textContent = isExpanded ? '编辑' : '收起';-->
-        <!--        });-->
 
         // 标签页切换
         const tabs = document.querySelectorAll('.tab');

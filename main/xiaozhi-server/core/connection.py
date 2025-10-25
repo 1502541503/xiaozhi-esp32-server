@@ -657,6 +657,24 @@ class ConnectionHandler:
             self.max_output_size = int(private_config["device_max_output_size"])
         if private_config.get("chat_history_conf", None) is not None:
             self.chat_history_conf = int(private_config["chat_history_conf"])
+
+        if private_config.get("agent_info", None) is not None:
+            agent_name = private_config.get("agent_info").get("agentName")
+            self.logger.bind(tag=TAG).info(f"当前连接使用智能体:{agent_name}")
+            asyncio.run_coroutine_threadsafe(
+                self.websocket.send(
+                    json.dumps(
+                        {
+                            "type": "server",
+                            "msg": f"当前连接使用智能体:{agent_name}",
+                            "session_id": self.session_id,
+                            "model": 1,
+                        }
+                    )
+                ),
+                self.loop,
+            )
+
         try:
             modules = initialize_modules(
                 self.logger,
