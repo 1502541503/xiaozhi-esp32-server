@@ -62,4 +62,16 @@ public class TimbreEntity {
     @TableField(fill = FieldFill.INSERT)
     private Date createDate;
 
+    @TableField("dialecto_flag")
+    @Schema(description = "是否是方言音色")
+    private Boolean dialectoFlag;
+
+    @TableField("recommend_flag")
+    @Schema(description = "是否是推荐音色")
+    private Boolean recommendFlag;
+
+    @TableField("default_flag")
+    @Schema(description = "是否是默认音色")
+    private Boolean defaultFlag;
+
 }

@@ -246,6 +246,11 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         if (dto.getChatHistoryConf() != null) {
             existingEntity.setChatHistoryConf(dto.getChatHistoryConf());
         }
+
+        if(dto.getMemModelId() != null && dto.getMemModelId().equals(Constant.MEMORY_NO_MEM)){
+            existingEntity.setChatHistoryConf(Constant.ChatHistoryConfEnum.RECORD_TEXT.getCode());
+        }
+
         if (dto.getLangCode() != null) {
             existingEntity.setLangCode(dto.getLangCode());
         }

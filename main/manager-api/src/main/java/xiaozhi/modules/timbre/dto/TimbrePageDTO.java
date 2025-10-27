@@ -21,6 +21,9 @@ public class TimbrePageDTO {
     @Schema(description = "音色名称")
     private String name;
 
+    @Schema(description = "语言")
+    private String languages;
+
     @Schema(description = "页数")
     private String page;
 

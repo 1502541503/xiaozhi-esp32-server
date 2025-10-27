@@ -2,6 +2,7 @@ package xiaozhi.modules.timbre.vo;
 
 import java.io.Serializable;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -36,5 +37,14 @@ public class TimbreDetailsVO implements Serializable {
 
     @Schema(description = "音频播放地址")
     private String voiceDemo;
+
+    @Schema(description = "是否是方言音色")
+    private Boolean dialectoFlag;
+
+    @Schema(description = "是否是推荐音色")
+    private Boolean recommendFlag;
+
+    @Schema(description = "是否是默认音色")
+    private Boolean defaultFlag;
 
 }

@@ -15,6 +15,8 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.page.PageData;
+import xiaozhi.common.redis.RedisUtils;
+import xiaozhi.common.utils.HttpContextUtils;
 import xiaozhi.common.utils.Result;
 import xiaozhi.common.validator.ValidatorUtils;
 import xiaozhi.modules.agent.entity.AgentEntity;
@@ -29,6 +31,8 @@ import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * xiaozhi-server 配置获取
@@ -42,10 +46,11 @@ import java.util.Map;
 public class ConfigController {
     private final TimbreService timbreService;
     private final ConfigService configService;
+    private final RedisUtils redisUtils;
 
     @GetMapping("ttsVoices")
     @Operation(summary = "音色列表")
-    public Result<List<TimbreDetailsVO>> pages(
+    public Result<Map<String, List<TimbreDetailsVO>>> pages(
             @RequestHeader(value = "bleInfo") String bleInfoStr
     ) {
         TimbrePageDTO dto = new TimbrePageDTO();
@@ -54,14 +59,39 @@ public class ConfigController {
         String decodedJson = URLDecoder.decode(bleInfoStr, StandardCharsets.UTF_8);
         // 2. JSON 反序列化为 BleInfo 对象
         BleInfo bleInfo = JSONUtil.toBean(decodedJson, BleInfo.class);
+
+        String simpleLanguage = HttpContextUtils.getSimpleLanguage();
+
+        // 2. 构造缓存 key：基于 bleInfoStr 和 simpleLanguage
+        String cacheKey = "ttsVoices_" + bleInfo.getMac() + "_" + bleInfo.getCountry() + "_" + simpleLanguage;
+
+        // 3. 尝试从 Redis 读取缓存
+        Result<Map<String, List<TimbreDetailsVO>>> cachedContent = (Result<Map<String, List<TimbreDetailsVO>>>) redisUtils.get(cacheKey);
+        if (cachedContent != null) {
+            return cachedContent;
+        }
+
         AgentEntity agentTTSModelByHeader = configService.getAgentTTSModelByHeader(bleInfo);
         dto.setTtsModelId(agentTTSModelByHeader.getTtsModelId());
+        dto.setLanguages(simpleLanguage);
         dto.setLimit("1000");
         dto.setPage("1");
 
         ValidatorUtils.validateEntity(dto);
-        List<TimbreDetailsVO> page = timbreService.page(dto).getList();
-        return new Result<List<TimbreDetailsVO>>().ok(page);
+        List<TimbreDetailsVO> voices = timbreService.page(dto).getList();
+
+        Map<String, List<TimbreDetailsVO>> groupedByLanguage = voices.stream()
+                .collect(Collectors.groupingBy(
+                        TimbreDetailsVO::getLanguages,
+                        TreeMap::new, // 指定使用 TreeMap，按键自然排序（字典序）
+                        Collectors.toList()
+                ));
+
+        cachedContent = new Result<Map<String, List<TimbreDetailsVO>>>().ok(groupedByLanguage);
+
+        redisUtils.set(cacheKey, cachedContent, 300);
+
+        return cachedContent;
     }
 
     @PostMapping("server-base")

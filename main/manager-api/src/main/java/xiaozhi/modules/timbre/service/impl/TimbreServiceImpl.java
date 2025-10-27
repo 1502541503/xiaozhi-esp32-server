@@ -20,6 +20,7 @@ import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
+import xiaozhi.common.utils.HttpContextUtils;
 import xiaozhi.modules.model.dto.VoiceDTO;
 import xiaozhi.modules.timbre.dao.TimbreDao;
 import xiaozhi.modules.timbre.dto.TimbreDataDTO;
@@ -30,7 +31,7 @@ import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
 
 /**
  * 音色的业务层的实现
- * 
+ *
  * @author zjy
  * @since 2025-3-21
  */
@@ -46,14 +47,18 @@ public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> 
         Map<String, Object> params = new HashMap<String, Object>();
         params.put(Constant.PAGE, dto.getPage());
         params.put(Constant.LIMIT, dto.getLimit());
+
         IPage<TimbreEntity> page = baseDao.selectPage(
-                getPage(params, null, true),
+                getPage(params, "sort", true),
                 // 定义查询条件
                 new QueryWrapper<TimbreEntity>()
                         // 必须按照ttsID查找
                         .eq("tts_model_id", dto.getTtsModelId())
                         // 如果有音色名字，按照音色名模糊查找
-                        .like(StringUtils.isNotBlank(dto.getName()), "name", dto.getName()));
+                        .like(StringUtils.isNotBlank(dto.getName()), "name", dto.getName())
+                        // 如果有语言名字，按照语言名模糊查找
+                        .like(StringUtils.isNotBlank(dto.getLanguages()), "tts_voice", dto.getLanguages())
+        );
 
         return getPageData(page, TimbreDetailsVO.class);
     }

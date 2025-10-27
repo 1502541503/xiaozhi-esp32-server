@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpHeaders;
@@ -83,6 +84,31 @@ public class HttpContextUtils {
         defaultLanguage = request.getHeader(HttpHeaders.ACCEPT_LANGUAGE);
 
         return defaultLanguage;
+    }
+
+    public static String getSimpleLanguage() {
+
+        String acceptLanguage = HttpContextUtils.getLanguage();
+
+        if (acceptLanguage == null || acceptLanguage.isEmpty()) {
+            return ""; // 默认语言
+        }
+
+        // 取第一个语言项（逗号分隔，忽略权重 q=...）
+        String primaryLangTag = acceptLanguage.split(",")[0].trim();
+
+        try {
+            // 使用 Locale 对象解析
+            Locale locale = Locale.forLanguageTag(primaryLangTag);
+            return locale.getLanguage(); // 返回如 "zh", "en", "fr"
+        } catch (Exception e) {
+            // 解析失败，尝试简单截取
+            if (primaryLangTag.contains("-")) {
+                return primaryLangTag.split("-")[0];
+            } else {
+                return primaryLangTag;
+            }
+        }
     }
 
     /**
