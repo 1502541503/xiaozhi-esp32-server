@@ -7,10 +7,10 @@ from openai.types import CompletionUsage
 
 from config.logger import setup_logging
 from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
+from core.handle.reportHandle import enqueue_tts_report
 from core.utils.util import check_model_key
 from core.providers.llm.base import LLMProviderBase
 from core.handle.functionHandler import FunctionHandler
-
 
 from plugins_func.register import all_function_registry
 
@@ -162,7 +162,6 @@ class LLMProvider(LLMProviderBase):
             )
             return None
 
-
     def process_stream_with_punctuation(self, stream_response, session_id):
         """
         处理流式响应，按标点符号分割返回数据
@@ -180,19 +179,25 @@ class LLMProvider(LLMProviderBase):
         first_10_chars_processed = False
         tool_calls = None
 
+        full_content = ""
+
         for chunk in stream_response:
-            logger.bind(tag=TAG).info(f"chunk: {chunk}")
+
+            if self.conn.client_abort:
+                break
+
+            logger.bind(tag=TAG).info(f"Azure流式响应帧: {chunk}")
 
             if getattr(chunk, "choices", None):
                 content = chunk.choices[0].delta.content
-                logger.bind(tag=TAG).info(f"tool_calls: {chunk.choices[0].delta.tool_calls}")
                 tool_calls = chunk.choices[0].delta.tool_calls
 
                 if tool_calls:
-                    print(f"检测到工具直接返回:{tool_calls}")
                     yield content, tool_calls
 
                 if content:
+                    full_content += content  # 拼接完整内容
+
                     if not first_10_chars_processed:
                         # 前10个字符缓存处理
                         buffer += content
@@ -280,9 +285,10 @@ class LLMProvider(LLMProviderBase):
                 self.loop,
             )
 
-            print(f"处理最后剩余的内容：{buffer}")
-
             yield buffer, tool_calls
+
+        if full_content != "":
+            enqueue_tts_report(self.conn, full_content, None)
 
     def vllm_chat_response(self, dialogue, imgUrl):
         domain_mapping = {
@@ -322,9 +328,6 @@ class LLMProvider(LLMProviderBase):
                 ]
             }
         ]
-
-        logger.bind(tag=TAG).info(f"imgUrl: {imgUrl}")
-        logger.bind(tag=TAG).info(f"dialogue: {dialogue}")
 
         return dialogue
 

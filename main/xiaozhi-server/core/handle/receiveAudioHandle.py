@@ -15,7 +15,7 @@ async def handleAudioMessage(conn, audio):
     # 当前片段是否有人说话
     # have_voice = True
     have_voice = conn.vad.is_vad(conn, audio)
-    #conn.logger.bind(tag=TAG).info(f"进入handleAudioMessage：{have_voice}")
+    # conn.logger.bind(tag=TAG).info(f"进入handleAudioMessage：{have_voice}")
     # 如果设备刚刚被唤醒，短暂忽略VAD检测
     if have_voice and hasattr(conn, "just_woken_up") and conn.just_woken_up:
         conn.logger.bind(tag=TAG).info(f"短暂忽略VAD检测")
@@ -28,15 +28,18 @@ async def handleAudioMessage(conn, audio):
         return
 
     # if have_voice:
-        # if conn.client_is_speaking:
-            # conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
-            #await handleAbortMessage(conn)
+    # if conn.client_is_speaking:
+    # conn.logger.bind(tag=TAG).info(f"检测无人说话？=============")
+    # await handleAbortMessage(conn)
     # 设备长时间空闲检测，用于say goodbye
-    #await no_voice_close_connect(conn, have_voice)
+    # await no_voice_close_connect(conn, have_voice)
     # 接收音频
     conn.asr_start_time = time.time()
     conn.asr_logged = False
+    conn.client_abort = False
+
     await conn.asr.receive_audio(conn, audio, have_voice)
+
 
 async def resume_vad_detection(conn):
     # 等待2秒后恢复VAD检测
@@ -52,7 +55,7 @@ async def startToChat(conn, text):
     # 如果当日的输出字数大于限定的字数
     if conn.max_output_size > 0:
         if check_device_output_limit(
-            conn.headers.get("device-id"), conn.max_output_size
+                conn.headers.get("device-id"), conn.max_output_size
         ):
             await max_out_size(conn)
             return
@@ -71,9 +74,13 @@ async def startToChat(conn, text):
     await send_stt_message(conn, text)
     conn.executor.submit(conn.chat, text)
 
-#增加一个图像识别
+
+# 增加一个图像识别
 async def startToChat(conn, text, imgurl=None):
-    print("图像识别 startToChat：", imgurl)
+    if conn.client_abort:
+        print("startToChat 阻断对话。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。")
+        return
+
     conn.audio_timeout_triggered = False
     speaker_name = None
     actual_text = text
@@ -109,7 +116,7 @@ async def startToChat(conn, text, imgurl=None):
     # 字数限制检查
     if conn.max_output_size > 0:
         if check_device_output_limit(
-            conn.headers.get("device-id"), conn.max_output_size
+                conn.headers.get("device-id"), conn.max_output_size
         ):
             await max_out_size(conn)
             return
@@ -123,7 +130,7 @@ async def startToChat(conn, text, imgurl=None):
 
     # 正常聊天流程
     await send_stt_message(conn, text)
-    conn.executor.submit(conn.chat, text,imgurl=imgurl)
+    conn.executor.submit(conn.chat, text, imgurl=imgurl)
     # await send_stt_message(conn, text)
     # if conn.intent_type == "function_call" and imgurl is None:
     #     conn.executor.submit(conn.chat_with_function_calling, text)
@@ -143,8 +150,8 @@ async def no_voice_close_connect(conn, have_voice):
             conn.config.get("close_connection_no_voice_time", 120)
         )
         if (
-            not conn.close_after_chat
-            and no_voice_time > 1000 * close_connection_no_voice_time
+                not conn.close_after_chat
+                and no_voice_time > 1000 * close_connection_no_voice_time
         ):
             conn.close_after_chat = True
             conn.client_abort = False
@@ -159,7 +166,7 @@ async def no_voice_close_connect(conn, have_voice):
             # await startToChat(conn, prompt)
 
             conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
-            #await conn.close()
+            # await conn.close()
             return
 
 

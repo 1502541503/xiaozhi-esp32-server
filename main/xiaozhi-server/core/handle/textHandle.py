@@ -38,7 +38,7 @@ async def handleTextMessage(conn, message):
                     f"Abort时检测到残留音频，立即触发清理"
                 )
             # 需要测试能否马上停止
-            #await handleAbortMessage(conn)
+            await handleAbortMessage(conn)
             # conn.audio_timeout_triggered = False
 
             conn.is_processing = False
@@ -47,7 +47,7 @@ async def handleTextMessage(conn, message):
             #conn.client_voice_stop = True
             conn.client_abort = True
         elif msg_json["type"] == "listen":
-            conn.logger.bind(tag=TAG).info(f"收到listen消息：{message}")
+            # conn.logger.bind(tag=TAG).info(f"收到listen消息：{message}")
             if "mode" in msg_json:
                 conn.client_listen_mode = msg_json["mode"]
                 conn.logger.bind(tag=TAG).debug(
@@ -96,7 +96,7 @@ async def handleTextMessage(conn, message):
                         # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
                         enqueue_asr_report(conn, original_text, [])
                         # 否则需要LLM对文字内容进行答复
-                        print("图片 URL：", imgurl)
+                        # print("图片 URL：", imgurl)
                         await startToChat(conn, original_text,imgurl=imgurl)
         elif msg_json["type"] == "iot":
             conn.logger.bind(tag=TAG).info(f"收到iot消息：{message}")

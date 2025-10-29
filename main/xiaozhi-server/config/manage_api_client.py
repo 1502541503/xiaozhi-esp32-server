@@ -176,6 +176,7 @@ def get_agent_models(
             "clientId": client_id,
             "selectedModule": selected_module,
             "country": ble_info.get("country", "China"),
+            "language": ble_info.get("language", "zh"),
         },
     )
 
@@ -248,7 +249,7 @@ def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[Dict]:
 
 
 def report(
-        mac_address: str, session_id: str, chat_type: int, content: str, audio, report_time
+        mac_address: str, session_id: str, chat_type: int, content: str, audio, report_time, ble_info
 ) -> Optional[Dict]:
     """带熔断的业务方法示例"""
     if not content or not ManageApiClient._instance:
@@ -263,6 +264,7 @@ def report(
                 "chatType": chat_type,
                 "content": content,
                 "reportTime": report_time,
+                "bleInfo": ble_info,
                 "audioBase64": (
                     base64.b64encode(audio).decode("utf-8") if audio else None
                 ),

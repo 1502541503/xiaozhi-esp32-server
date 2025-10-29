@@ -222,8 +222,7 @@ class ConnectionHandler:
                             self.lat = None
                 except json.JSONDecodeError:
                     pass
-            # self.lon = -0.13
-            # self.lat = 51.51
+
             self.logger.bind(tag=TAG).error(f"经度：{self.lon},纬度：{self.lat}")
             # 这里是授权校验 暂时注释不发版本
             if self.headers.get("device-id", None) is None or self.headers.get("authorization") is None:
@@ -258,7 +257,6 @@ class ConnectionHandler:
                         ble_info.setdefault("voice", voice[0])
 
             self.isAiOnline = ble_info.get("isAiOnline", None)
-            print(f"是否开启联网搜索{self.isAiOnline}")
 
             if self.headers.get("authorization") is None:
                 self.logger.bind(tag=TAG).error("未提供授权参数 Authorization")
@@ -335,10 +333,13 @@ class ConnectionHandler:
 
             # 获取差异化配置
             self._initialize_private_config(ble_info)
-            # 异步初始化
-            self.executor.submit(self._initialize_components)
 
+            ble_info.setdefault("language", self.language)
             self.ble_info = ble_info
+
+            # 异步初始化
+            # self.executor.submit(self._initialize_components)
+            self._initialize_components()
 
             try:
                 async for message in self.websocket:
@@ -516,13 +517,14 @@ class ConnectionHandler:
             if hasattr(self.llm, 'init_args') and callable(self.llm.init_args):
                 self.llm.init_args(
                     headers=self.headers,
-                    ws=self.websocket
+                    ws=self.websocket,
+                    conn=self
                 )
 
             if hasattr(self.tts, 'init_args') and callable(self.tts.init_args):
                 self.tts.init_args(
                     headers=self.headers,
-                    ws=self.websocket
+                    ws=self.websocket,
                 )
 
         except Exception as e:
@@ -532,8 +534,8 @@ class ConnectionHandler:
         """初始化ASR和TTS上报线程"""
         if not self.read_config_from_api or self.need_bind:
             return
-        if self.chat_history_conf == 0:
-            return
+        # if self.chat_history_conf == 0:
+        #     return
         if self.report_thread is None or not self.report_thread.is_alive():
             self.report_thread = threading.Thread(
                 target=self._report_worker, daemon=True
@@ -660,7 +662,9 @@ class ConnectionHandler:
 
         if private_config.get("agent_info", None) is not None:
             agent_name = private_config.get("agent_info").get("agentName")
+            agent_id = private_config.get("agent_info").get("id")
             self.logger.bind(tag=TAG).info(f"当前连接使用智能体:{agent_name}")
+            ble_info.setdefault("agentId", agent_id)
             asyncio.run_coroutine_threadsafe(
                 self.websocket.send(
                     json.dumps(
@@ -866,7 +870,7 @@ class ConnectionHandler:
             start_time = time.time()
             if functions is not None and getattr(self.llm, "provider", "") != "AliBL":
                 # 使用支持functions的streaming接口
-                print(f"进入====：2.{imgurl}，本次提问的是:{query}")
+                # print(f"进入====：2.{imgurl}，本次提问的是:{query}")
                 self.llm.isAiOnline = self.isAiOnline
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
@@ -879,25 +883,9 @@ class ConnectionHandler:
                     functions=functions,
                     imgUrl=imgurl
                 )
-                print(f"问答结束=={llm_responses}")
-
-                # asyncio.run_coroutine_threadsafe(
-                #     self.websocket.send(
-                #         json.dumps(
-                #             {
-                #                 "type": "llm",
-                #                 "text": llm_responses or "",
-                #                 "session_id": self.session_id,
-                #                 "tool_calls": chunk.choices[0].delta.tool_calls
-                #             }
-                #         )
-                #     ),
-                #     self.loop,
-                # )
-
                 # 直接遍历 generator，逐条发送给 websocket 客户端
                 # 判断如果本轮次是视觉识别，清除掉非系统会话记忆，防止会话异常
-                if imgurl:
+                if imgurl is not None:
                     self.dialogue.clear_user_msg()
 
             else:

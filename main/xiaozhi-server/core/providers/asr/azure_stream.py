@@ -234,10 +234,10 @@ class ASRProvider(ASRProviderBase):
                 break
             elif now - self.last_audio_time > timeout_seconds:
                 logger.bind(tag=TAG).info(f"静音超过{timeout_seconds}秒，自动停止识别")
-                if self.conn:
-                    await self.conn.websocket.send(
-                        WebSocketErrorManager.create_error_response(ErrorCode.ASR_NO_VOICE_ERROR, "静音超时终止")
-                    )
+                # if self.conn:
+                #     await self.conn.websocket.send(
+                #         WebSocketErrorManager.create_error_response(ErrorCode.ASR_NO_VOICE_ERROR, "静音超时终止")
+                #     )
                 await self._stop_recognition(conn)
                 break
 

@@ -222,7 +222,7 @@ class ASRProvider(ASRProviderBase):
         try:
             while self.asr_ws and not conn.stop_event.is_set():
                 try:
-                    response = await asyncio.wait_for(self.asr_ws.recv(), timeout=1.0)
+                    response = await asyncio.wait_for(self.asr_ws.recv(), timeout=2.0)
                     result = json.loads(response)
                     print(f"{result}")
                     header = result.get("header", {})
@@ -265,9 +265,9 @@ class ASRProvider(ASRProviderBase):
                         text = payload.get("result", "")
                         logger.bind(tag=TAG).warning(f"中间返回结果: {text}")
                         if text:
-                            await conn.websocket.send(
-                                json.dumps(
-                                    {"type": "stt2", "state": "sentence_start", "text": text, "session_id": conn.session_id}))
+                            # await conn.websocket.send(
+                            #     json.dumps(
+                            #         {"type": "stt2", "state": "sentence_start", "text": text, "session_id": conn.session_id}))
 
                             self.asr_end = True
                             self.text = text

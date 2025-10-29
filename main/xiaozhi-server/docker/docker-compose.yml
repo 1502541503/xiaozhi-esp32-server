@@ -38,7 +38,7 @@ services:
     ports:
       - "8002:8002"
     volumes:
-      - "/home/work/sma_xz/xz-web/server:/home/work/sma_xz/xz-web/server"
+      - "/home/work/sma_xz/xz-web:/home/work/sma_xz/xz-web"
     environment:
       - TZ=Asia/Shanghai
       - SPRING_DATA_REDIS_HOST=xz-redis

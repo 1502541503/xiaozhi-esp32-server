@@ -8,6 +8,7 @@ import asyncio
 from openai.types import CompletionUsage
 from config.logger import setup_logging
 from core.ext.WebSocketErrorManager import WebSocketErrorManager, ErrorCode
+from core.handle.reportHandle import enqueue_tts_report
 from core.utils.util import check_model_key
 from core.providers.llm.base import LLMProviderBase
 
@@ -21,9 +22,8 @@ class LLMProvider(LLMProviderBase):
         self.loop = asyncio.get_event_loop()
         self.headers = None
         self.ws = None
+        self.conn = None
         self.isAiOnline = None
-        print("图像识别 openai：", "111")
-
         self.model_name = config.get("model_name")
         self.api_key = config.get("api_key")
         if "base_url" in config:
@@ -44,9 +44,6 @@ class LLMProvider(LLMProviderBase):
                 setattr(self, param, converter(value) if value not in (None, "") else default)
             except (ValueError, TypeError):
                 setattr(self, param, default)
-
-        logger.debug(
-            f"意图识别参数初始化: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}")
 
         check_model_key("LLM", self.api_key)
 
@@ -222,8 +219,13 @@ class LLMProvider(LLMProviderBase):
         # 标记是否已经处理完前10个字符
         first_10_chars_processed = False
         tool_calls = None
+        full_content = ""
 
         for chunk in stream_response:
+
+            if self.conn.client_abort:
+                break
+
             logger.bind(tag=TAG).info(f"chunk: {chunk}")
 
             if getattr(chunk, "choices", None):
@@ -236,6 +238,9 @@ class LLMProvider(LLMProviderBase):
                     yield content, tool_calls
 
                 if content:
+
+                    full_content += content  # 拼接完整内容
+
                     if not first_10_chars_processed:
                         # 前10个字符缓存处理
                         buffer += content
@@ -327,6 +332,11 @@ class LLMProvider(LLMProviderBase):
 
             yield buffer, tool_calls
 
+        if full_content != "":
+            enqueue_tts_report(self.conn, full_content, None)
+
+
     def init_args(self, **args):
         self.headers = args.get("headers")
         self.ws = args.get("ws")
+        self.conn = args.get("conn")

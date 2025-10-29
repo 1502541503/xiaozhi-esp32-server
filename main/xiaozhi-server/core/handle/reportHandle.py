@@ -41,6 +41,7 @@ def report(conn, type, text, opus_data, report_time):
             content=text,
             audio=audio_data,
             report_time=report_time,
+            ble_info=conn.ble_info
         )
     except Exception as e:
         conn.logger.bind(tag=TAG).error(f"聊天记录上报失败: {e}")
@@ -96,8 +97,8 @@ def opus_to_wav(conn, opus_data):
 def enqueue_tts_report(conn, text, opus_data):
     if not conn.read_config_from_api or conn.need_bind or not conn.report_tts_enable:
         return
-    if conn.chat_history_conf == 0:
-        return
+    # if conn.chat_history_conf == 0:
+    #     return
     """将TTS数据加入上报队列
 
     Args:
@@ -124,8 +125,8 @@ def enqueue_tts_report(conn, text, opus_data):
 def enqueue_asr_report(conn, text, opus_data):
     if not conn.read_config_from_api or conn.need_bind or not conn.report_asr_enable:
         return
-    if conn.chat_history_conf == 0:
-        return
+    # if conn.chat_history_conf == 0:
+    #     return
     """将ASR数据加入上报队列
 
     Args:
@@ -142,7 +143,7 @@ def enqueue_asr_report(conn, text, opus_data):
             )
         else:
             conn.report_queue.put((1, text, None, int(time.time())))
-            conn.logger.bind(tag=TAG).debug(
+            conn.logger.bind(tag=TAG).info(
                 f"ASR数据已加入上报队列: {conn.device_id}, 不上报音频"
             )
     except Exception as e:

@@ -189,7 +189,7 @@ async def sendAudio(conn, audios, frame_duration=60):
 
 
 async def send_tts_message(conn, state, text=None):
-    conn.logger.bind(tag=TAG).info(f"进入send_tts_message state: {state},text: {text}")
+    # conn.logger.bind(tag=TAG).info(f"进入send_tts_message state: {state},text: {text}")
     """发送 TTS 状态消息"""
     message = {"type": "tts", "state": state, "session_id": conn.session_id}
     if text is not None:
