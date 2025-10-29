@@ -16,7 +16,7 @@ public interface ConfigService {
      */
     Object getConfig(Boolean isCache);
 
-    AgentEntity getAgentTTSModelByHeader(BleInfo bleInfo);
+    AgentEntity getAgentTTSModelByDevice(BleInfo bleInfo,String simpleLanguage);
 
     /**
      * 获取智能体模型配置

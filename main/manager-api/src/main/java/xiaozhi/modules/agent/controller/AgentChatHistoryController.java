@@ -33,4 +33,6 @@ public class AgentChatHistoryController {
         Boolean result = agentChatHistoryBizService.report(request);
         return new Result<Boolean>().ok(result);
     }
+
+
 }

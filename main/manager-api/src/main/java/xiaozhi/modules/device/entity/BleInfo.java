@@ -21,4 +21,5 @@ public class BleInfo {
     private int phoneOs;
     private String pid;
     private String uid;
+    private String agentId;
 }

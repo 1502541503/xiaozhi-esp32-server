@@ -103,7 +103,7 @@ public class ConfigServiceImpl implements ConfigService {
     }
 
     @Override
-    public AgentEntity getAgentTTSModelByHeader(BleInfo bleInfo) {
+    public AgentEntity getAgentTTSModelByDevice(BleInfo bleInfo, String simpleLanguage) {
         // 根据MAC地址查找设备
         DeviceEntity device = deviceService.getDeviceByMacAddress(bleInfo.getMac());
         log.info("DeviceInfo: {}", device);
@@ -113,7 +113,8 @@ public class ConfigServiceImpl implements ConfigService {
             String country = bleInfo.getCountry();
             String agentIdCn = smaProperties.getAgentId_cn();
             String agentIdOther = smaProperties.getAgentId_other();
-            if (StrUtil.equalsAny(country, "China", "CN", "Hong Kong")) {
+            //自动选择国内智能体要求:1.设备处于国内  2.语言为中文或英文
+            if (StrUtil.equalsAny(country, "China", "CN") && StrUtil.equalsAny(simpleLanguage, "zh", "en")) {
                 agent = agentService.getAgentById(agentIdCn);
             } else {
                 agent = agentService.getAgentById(agentIdOther);
@@ -139,7 +140,7 @@ public class ConfigServiceImpl implements ConfigService {
             String country = dto.getCountry();
             String agentIdCn = smaProperties.getAgentId_cn();
             String agentIdOther = smaProperties.getAgentId_other();
-            if (StrUtil.equalsAny(country, "China", "CN", "Hong Kong")) {
+            if (StrUtil.equalsAny(country, "China", "CN") && StrUtil.equalsAny(dto.getLanguage(), "zh", "en")) {
                 agent = agentService.getAgentById(agentIdCn);
             } else {
                 agent = agentService.getAgentById(agentIdOther);

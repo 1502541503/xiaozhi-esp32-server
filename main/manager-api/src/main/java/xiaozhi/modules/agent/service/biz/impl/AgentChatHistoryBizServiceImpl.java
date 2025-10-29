@@ -2,6 +2,7 @@ package xiaozhi.modules.agent.service.biz.impl;
 
 import java.util.Base64;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
@@ -51,20 +52,23 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         log.info("小智设备聊天上报请求: macAddress={}, type={} reportTime={}", macAddress, chatType, reportTimeMillis);
 
         // 根据设备MAC地址查询对应的默认智能体，判断是否需要上报
-        AgentEntity agentEntity = agentService.getDefaultAgentByMacAddress(macAddress);
-        if (agentEntity == null) {
-            return Boolean.FALSE;
-        }
+//        AgentEntity agentEntity = agentService.getDefaultAgentByMacAddress(macAddress);
+//        if (agentEntity == null) {
+//            return Boolean.FALSE;
+//        }
+//
+//        Integer chatHistoryConf = agentEntity.getChatHistoryConf();
+//        String agentId = agentEntity.getId();
+//
+//        if (Objects.equals(chatHistoryConf, Constant.ChatHistoryConfEnum.RECORD_TEXT.getCode())) {
+//            saveChatText(report, agentId, macAddress, null, reportTimeMillis);
+//        } else if (Objects.equals(chatHistoryConf, Constant.ChatHistoryConfEnum.RECORD_TEXT_AUDIO.getCode())) {
+//            String audioId = saveChatAudio(report);
+//            saveChatText(report, agentId, macAddress, audioId, reportTimeMillis);
+//        }
 
-        Integer chatHistoryConf = agentEntity.getChatHistoryConf();
-        String agentId = agentEntity.getId();
-
-        if (Objects.equals(chatHistoryConf, Constant.ChatHistoryConfEnum.RECORD_TEXT.getCode())) {
-            saveChatText(report, agentId, macAddress, null, reportTimeMillis);
-        } else if (Objects.equals(chatHistoryConf, Constant.ChatHistoryConfEnum.RECORD_TEXT_AUDIO.getCode())) {
-            String audioId = saveChatAudio(report);
-            saveChatText(report, agentId, macAddress, audioId, reportTimeMillis);
-        }
+        String agentId = report.getBleInfo().getAgentId();
+        saveChatText(report, agentId, macAddress, null, reportTimeMillis);
 
         // 更新设备最后对话时间
         redisUtils.set(RedisKeys.getAgentDeviceLastConnectedAtById(agentId), new Date());

@@ -22,6 +22,9 @@ public class AgentModelsDTO {
     @Schema(description = "国家位置")
     private String country = "China";
 
+    @Schema(description = "用户语言")
+    private String language = "zh";
+
     @NotNull(message = "客户端已实例化的模型不能为空")
     @Schema(description = "客户端已实例化的模型")
     private Map<String, String> selectedModule;
@@ -32,6 +35,7 @@ public class AgentModelsDTO {
                 "macAddress='" + macAddress + '\'' +
                 ", clientId='" + clientId + '\'' +
                 ", country='" + country + '\'' +
+                ", language='" + language + '\'' +
                 ", selectedModule=" + selectedModule +
                 '}';
     }

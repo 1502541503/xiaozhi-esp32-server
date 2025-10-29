@@ -71,7 +71,7 @@ public class ConfigController {
             return cachedContent;
         }
 
-        AgentEntity agentTTSModelByHeader = configService.getAgentTTSModelByHeader(bleInfo);
+        AgentEntity agentTTSModelByHeader = configService.getAgentTTSModelByDevice(bleInfo,simpleLanguage);
         dto.setTtsModelId(agentTTSModelByHeader.getTtsModelId());
         dto.setLanguages(simpleLanguage);
         dto.setLimit("1000");
