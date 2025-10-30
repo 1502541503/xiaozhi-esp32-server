@@ -9,6 +9,7 @@ import asyncio
 import threading
 import traceback
 import subprocess
+from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
 import websockets
@@ -988,6 +989,7 @@ class ConnectionHandler:
                             ),
                             self.loop,
                         )
+                        self.logger.bind(tag=TAG).info(f"TTS 111队列插入首帧时间: {datetime.now()}")
                         self.tts.tts_text_queue.put(
                             TTSMessageDTO(
                                 sentence_id=self.sentence_id,
@@ -995,6 +997,7 @@ class ConnectionHandler:
                                 content_type=ContentType.ACTION,
                             )
                         )
+                    self.logger.bind(tag=TAG).info(f"TTS 222队列插入首帧时间: {datetime.now()},内容：{content}")
                     self.tts.tts_text_queue.put(
                         TTSMessageDTO(
                             sentence_id=self.sentence_id,
@@ -1086,6 +1089,7 @@ class ConnectionHandler:
                 Message(role="assistant", content="".join(response_message))
             )
         if text_index > 0:
+            self.logger.bind(tag=TAG).info(f"TTS 333队列插入首帧时间: {datetime.now()}")
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
                     sentence_id=self.sentence_id,

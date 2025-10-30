@@ -11,7 +11,7 @@ TAG = __name__
 async def sendAudioMessage(conn, sentenceType, audios, text):
 
     if conn.tts.tts_audio_first_sentence:
-        conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
+        # conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
         conn.tts.tts_audio_first_sentence = False
         await send_tts_message(conn, "start", None)
 
