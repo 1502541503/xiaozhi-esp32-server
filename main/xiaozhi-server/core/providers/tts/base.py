@@ -77,7 +77,7 @@ class TTSProviderBase(ABC):
         )
 
     def handle_opus(self, opus_data: bytes):
-        logger.bind(tag=TAG).debug(f"推送数据到队列里面帧数～～ {len(opus_data)}")
+        logger.bind(tag=TAG).info(f"推送数据到队列里面帧数～～ {len(opus_data)}")
         self.tts_audio_queue.put((SentenceType.MIDDLE, opus_data, None))
 
     def handle_audio_file(self, file_audio: bytes, text):
@@ -355,8 +355,11 @@ class TTSProviderBase(ABC):
         """
         if tts_file.endswith(".p3"):
             p3.decode_opus_from_file_stream(tts_file, callback=callback)
-        elif self.conn.audio_format == "pcm":
-            self.audio_to_pcm_data_stream(tts_file, callback=callback)
+
+        # 这边就算是pcm返会也按opus处理zzq
+        # elif self.conn.audio_format == "pcm":
+        #     self.audio_to_opus_data_stream(tts_file, callback=callback)
+            # self.audio_to_pcm_data_stream(tts_file, callback=callback)
         else:
             self.audio_to_opus_data_stream(tts_file, callback=callback)
 
