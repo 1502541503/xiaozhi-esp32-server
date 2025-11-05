@@ -1,4 +1,6 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import cnlunar
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
 
@@ -16,28 +18,52 @@ WEEKDAY_MAP = {
 get_time_function_desc = {
     "type": "function",
     "function": {
-        "name": "get_time",
-        "description": "获取今天日期或者当前时间信息",
-        "parameters": {"type": "object", "properties": {}, "required": []},
-    },
+            "name": "get_time",
+            "description": "获取指定 IANA 时区的当前日期和时间。如果未提供时区，则返回 UTC 时间。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timezone": {
+                        "type": "string",
+                        "description": "IANA 时区标识符，例如 'Asia/Shanghai'、'America/New_York'、'Europe/London'。默认为 'UTC'。",
+                        "default": "UTC"
+                    }
+                },
+                "required": []
+            }
+        }
 }
 
 
 @register_function("get_time", get_time_function_desc, ToolType.WAIT)
-def get_time():
-    print(f"进入时间插件: {get_lunar_function_desc}")
-    """
-    获取当前的日期时间信息
-    """
-    now = datetime.now()
-    current_time = now.strftime("%H:%M:%S")
-    current_date = now.strftime("%Y-%m-%d")
-    current_weekday = WEEKDAY_MAP[now.strftime("%A")]
-    response_text = (
-        f"当前日期: {current_date}，当前时间: {current_time}， {current_weekday}"
-    )
+def get_time(timezone: str = "UTC"):
+    print(f"进入时间插件,当前请求时区: {timezone}")
+    # """
+    # 获取当前的日期时间信息
+    # """
+    # now = datetime.now()
+    # current_time = now.strftime("%H:%M:%S")
+    # current_date = now.strftime("%Y-%m-%d")
+    # current_weekday = WEEKDAY_MAP[now.strftime("%A")]
+    # response_text = (
+    #     f"当前日期: {current_date}，当前时间: {current_time}， {current_weekday}"
+    # )
 
-    return ActionResponse(Action.REQLLM, response_text, None)
+    """
+        执行函数：返回人类可读的时间字符串。
+        专为 AI 工具调用设计，输出简洁、明确。
+        """
+    try:
+        tz = ZoneInfo(timezone)
+    except Exception:
+        # 无效时区回退到 UTC，并说明情况
+        tz = ZoneInfo("UTC")
+        return f"无效时区 '{timezone}'，已返回 UTC 时间。"
+
+    now = datetime.now(tz)
+    readable = f"当前时间是：{now.strftime('%Y-%m-%d %H:%M:%S %Z (UTC%z)')}"
+
+    return ActionResponse(Action.REQLLM, readable, None)
 
 
 get_lunar_function_desc = {
