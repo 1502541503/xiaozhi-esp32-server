@@ -29,7 +29,12 @@ class TTSProvider(TTSProviderBase):
             except (AttributeError, KeyError):
                 pass  # 处理 ble_info 不存在或 get 方法异常的情况
 
-            communicate = edge_tts.Communicate(text, voice=self.voice)
+            # 在调用处判断是否传入 voice 参数
+            if self.voice:
+                communicate = edge_tts.Communicate(text, voice=self.voice)
+            else:
+                communicate = edge_tts.Communicate(text)
+
             if output_file:
                 # 确保目录存在并创建空文件
                 os.makedirs(os.path.dirname(output_file), exist_ok=True)
