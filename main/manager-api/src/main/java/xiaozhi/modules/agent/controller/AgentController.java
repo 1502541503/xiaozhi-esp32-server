@@ -154,6 +154,9 @@ public class AgentController {
     @Parameters({
             @Parameter(name = Constant.PAGE, description = "当前页码，从1开始", required = true),
             @Parameter(name = Constant.LIMIT, description = "每页显示记录数", required = true),
+            @Parameter(name = "sessionId", description = "会话ID进行精确匹配"),
+            @Parameter(name = "startTime", description = "开始时间，格式：yyyy-MM-dd HH:mm", example = "2025-01-01 00:00"),
+            @Parameter(name = "endTime", description = "结束时间，格式：yyyy-MM-dd HH:mm", example = "2025-12-31 23:59")
     })
     public Result<PageData<AgentChatSessionDTO>> getAgentSessions(
             @PathVariable("id") String id,

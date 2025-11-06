@@ -42,8 +42,27 @@ public class AgentChatHistoryServiceImpl extends ServiceImpl<AiAgentChatHistoryD
         // 构建查询条件
         QueryWrapper<AgentChatHistoryEntity> wrapper = new QueryWrapper<>();
         wrapper.select("session_id", "MAX(created_at) as created_at", "COUNT(*) as chat_count")
-                .eq("agent_id", agentId)
-                .groupBy("session_id")
+                .eq("agent_id", agentId);
+
+        // 会话ID筛选条件
+        String sessionId = (String) params.get("sessionId");
+        if (sessionId != null && !sessionId.isEmpty()) {
+            wrapper.eq("session_id", sessionId);
+        }
+
+        // 时间筛选条件
+        String startTime = (String) params.get("startTime");
+        String endTime = (String) params.get("endTime");
+
+        if (startTime != null && !startTime.isEmpty()) {
+            wrapper.ge("created_at", startTime);
+        }
+
+        if (endTime != null && !endTime.isEmpty()) {
+            wrapper.le("created_at", endTime);
+        }
+
+        wrapper.groupBy("session_id")
                 .orderByDesc("created_at");
 
         // 执行分页查询
