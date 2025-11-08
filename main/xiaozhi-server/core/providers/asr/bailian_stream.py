@@ -138,7 +138,7 @@ class ASRProvider(ASRProviderBase):
                 "input_audio_format": "pcm",
                 "sample_rate": 16000,
                 "input_audio_transcription": {
-                    "language": conn.language,
+                    "language": "zh" if conn.language == "cn" else conn.language,
                 },
                 "turn_detection": {
                     "type": "server_vad",
@@ -161,7 +161,7 @@ class ASRProvider(ASRProviderBase):
                 try:
                     response = await asyncio.wait_for(self.asr_ws.recv(), timeout=2.0)
                     result = json.loads(response)
-                    #print(f"result==={result}")
+                    print(f"result==={result}")
                     type = result.get("type", "")
                     last_data_time = time.time()
 
@@ -183,6 +183,7 @@ class ASRProvider(ASRProviderBase):
                                 try:
                                     pcm_frame = self.decoder.decode(cached_audio, 960)
                                     encoded_data = base64.b64encode(pcm_frame).decode('utf-8')
+                                    #print(f"encoded_data===={encoded_data}")
                                     res = {
                                         "event_id": f"event_{int(time.time() * 1000)}",
                                         "type": "input_audio_buffer.append",
@@ -356,7 +357,6 @@ class ASRProvider(ASRProviderBase):
         if self.asr_ws and conn.asr_audio:
             try:
                 pcm_frame = self.decoder.decode(conn.asr_audio[-1], 960)
-                # pcm_frame = self.decoder.decode(cached_audio, 960)
                 encoded_data = base64.b64encode(pcm_frame).decode('utf-8')
                 res = {
                     "event_id": f"event_{int(time.time() * 1000)}",
