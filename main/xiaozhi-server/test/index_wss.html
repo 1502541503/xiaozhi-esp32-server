@@ -1937,23 +1937,36 @@
                 log(`API请求失败: ${data.msg}`, 'error');
                 throw new Error(`API请求失败: ${data.msg}`);
             }
-            
-            // 假设API返回的格式为 { voices: [{id: "...", name: "..."}] }
-            const voices = Array.isArray(data.data) ? data.data : [];
-            
-            // 添加音色选项
-                voices.forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.ttsVoice;
-                    option.textContent = voice.name;
-                    // 存储音色相关信息，包括音频链接
-                    option.dataset.voiceName = voice.name;
-                    option.dataset.audioUrl = voice.voiceDemo || ''; // 假设音频链接字段名为audioUrl
-                    voiceSelect.appendChild(option);
+
+            // 处理分组数据 - 遍历所有分组并合并为一个数组
+            let voices = [];
+            if (typeof data.data === 'object' && data.data !== null) {
+                // 遍历所有语言分组
+                Object.keys(data.data).forEach(group => {
+                    if (Array.isArray(data.data[group])) {
+                        // 为每个音色添加分组信息
+                        data.data[group].forEach(voice => {
+                            voice.groupName = group; // 添加分组名称到音色对象中
+                            voices.push(voice);
+                        });
+                    }
                 });
-            
+            }
+
+            // 添加音色选项
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.ttsVoice;
+                // 将分组名称拼接到显示文本中
+                option.textContent = `${voice.groupName}-${voice.name}`;
+                // 存储音色相关信息，包括音频链接
+                option.dataset.voiceName = voice.name;
+                option.dataset.audioUrl = voice.voiceDemo || '';
+                voiceSelect.appendChild(option);
+            });
+
             log(`已从API加载${voices.length}个音色选项 (国家: ${selectedCountry})`, 'success');
-            
+
         } finally {
             // 恢复按钮状态
             voiceFlush.textContent = '刷新';
