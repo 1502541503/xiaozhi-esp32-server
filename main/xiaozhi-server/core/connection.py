@@ -989,7 +989,6 @@ class ConnectionHandler:
                             ),
                             self.loop,
                         )
-                        self.logger.bind(tag=TAG).info(f"TTS 111队列插入首帧时间: {datetime.now()}")
                         self.tts.tts_text_queue.put(
                             TTSMessageDTO(
                                 sentence_id=self.sentence_id,
@@ -997,7 +996,6 @@ class ConnectionHandler:
                                 content_type=ContentType.ACTION,
                             )
                         )
-                    self.logger.bind(tag=TAG).info(f"TTS 222队列插入首帧时间: {datetime.now()},内容：{content}")
                     self.tts.tts_text_queue.put(
                         TTSMessageDTO(
                             sentence_id=self.sentence_id,
@@ -1089,7 +1087,6 @@ class ConnectionHandler:
                 Message(role="assistant", content="".join(response_message))
             )
         if text_index > 0:
-            self.logger.bind(tag=TAG).info(f"TTS 333队列插入首帧时间: {datetime.now()}")
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
                     sentence_id=self.sentence_id,
@@ -1272,7 +1269,7 @@ class ConnectionHandler:
     def clear_queues(self):
         """清空所有任务队列"""
         if self.tts:
-            self.logger.bind(tag=TAG).debug(
+            self.logger.bind(tag=TAG).info(
                 f"开始清理: TTS队列大小={self.tts.tts_text_queue.qsize()}, 音频队列大小={self.tts.tts_audio_queue.qsize()}"
             )
 
@@ -1290,7 +1287,7 @@ class ConnectionHandler:
                     except queue.Empty:
                         break
 
-            self.logger.bind(tag=TAG).debug(
+            self.logger.bind(tag=TAG).info(
                 f"清理结束: TTS队列大小={self.tts.tts_text_queue.qsize()}, 音频队列大小={self.tts.tts_audio_queue.qsize()}"
             )
 
