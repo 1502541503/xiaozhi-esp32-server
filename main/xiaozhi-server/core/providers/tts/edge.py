@@ -43,7 +43,7 @@ class TTSProvider(TTSProviderBase):
 
                 # 流式写入音频数据
                 with open(output_file, "ab") as f:  # 改为追加模式避免覆盖
-                    async for chunk in communicate.stream():
+                      async for chunk in communicate.stream():
                         if chunk["type"] == "audio":  # 只处理音频数据块
                             f.write(chunk["data"])
             else:

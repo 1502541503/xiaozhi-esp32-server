@@ -1918,8 +1918,9 @@
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept-Language': document.getElementById('languageSelect').value,
                     // 可以添加其他必要的头信息，如认证token
-                    'Authorization': 'Bearer b6d0c6b3-9cf5-4011-88ce-160e7ac0331c',
+                    'Authorization': 'Bearer uyZ7UQVkO2fGnF7JE14dyIH6fNJ0Hiho4xLdsCHliRrYVpBK5hai5TWVeSVj',
                     'BleInfo': "{'mac':'"+document.getElementById('deviceMac').value.trim()+"','country':'"+document.getElementById('countrySelect').value +"'}"
                 },
             });
