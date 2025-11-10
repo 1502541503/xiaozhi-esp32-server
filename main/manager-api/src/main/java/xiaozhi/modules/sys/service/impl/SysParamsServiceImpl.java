@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,7 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.JsonUtils;
+import xiaozhi.modules.device.entity.SmaProperties;
 import xiaozhi.modules.sys.dao.SysParamsDao;
 import xiaozhi.modules.sys.dto.SysParamsDTO;
 import xiaozhi.modules.sys.entity.SysParamsEntity;
@@ -34,6 +37,9 @@ import xiaozhi.modules.sys.service.SysParamsService;
 @Service
 public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParamsEntity> implements SysParamsService {
     private final SysParamsRedis sysParamsRedis;
+
+    @Autowired
+    private SmaProperties smaProperties;
 
     @Override
     public PageData<SysParamsDTO> page(Map<String, Object> params) {
@@ -163,6 +169,9 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
     @Override
     public String getValue(String paramCode, Boolean fromCache) {
         String paramValue = null;
+        if(("server.secret").equals(paramCode)) {
+            return smaProperties.getToken();
+        }
         if (fromCache) {
             paramValue = sysParamsRedis.get(paramCode);
             if (paramValue == null) {
@@ -203,7 +212,7 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
         // 获取服务器密钥
         String secretParam = getValue(Constant.SERVER_SECRET, false);
         if (StringUtils.isBlank(secretParam) || "null".equals(secretParam)) {
-            String newSecret = UUID.randomUUID().toString();
+            String newSecret = smaProperties.getToken()!=null?smaProperties.getToken():UUID.randomUUID().toString();
             updateValueByCode(Constant.SERVER_SECRET, newSecret);
         }
     }

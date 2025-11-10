@@ -231,7 +231,6 @@ class LLMProvider(LLMProviderBase):
 
             if getattr(chunk, "choices", None):
                 content = chunk.choices[0].delta.content
-                logger.bind(tag=TAG).info(f"tool_calls: {chunk.choices[0].delta.tool_calls}")
                 tool_calls = chunk.choices[0].delta.tool_calls
 
                 if tool_calls:

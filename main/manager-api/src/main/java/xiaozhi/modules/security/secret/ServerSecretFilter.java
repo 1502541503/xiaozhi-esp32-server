@@ -4,6 +4,9 @@ import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.web.filter.authc.AuthenticatingFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import jakarta.servlet.ServletRequest;
@@ -17,6 +20,7 @@ import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.utils.HttpContextUtils;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.device.entity.SmaProperties;
 import xiaozhi.modules.sys.service.SysParamsService;
 
 /**

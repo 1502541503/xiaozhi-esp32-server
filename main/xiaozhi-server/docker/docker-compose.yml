@@ -32,7 +32,7 @@ services:
 
   # Java Web服务
   xz-web:
-    image: docker.xuanyuan.me/library/openjdk:21
+    image: eclipse-temurin:21-jre
     container_name: xz-web
     restart: always
     ports:
@@ -50,10 +50,27 @@ services:
       - xz-redis
     networks:
       - sma-net
+
+  # Nginx 代理服务
+  xz-nginx:
+    image: nginx:alpine
+    container_name: xz-nginx
+    restart: always
+    ports:
+      - "80:80"          # HTTP 访问端口
+      - "443:443"      # 如需 HTTPS 可启用
+    volumes:
+      - /home/work/sma_xz/xz-web/web:/home/work/sma_xz/xz-web/web
+      - ./xz-nginx/cert:/home/work/sma_xz/xz-nginx/cert
+      - ./xz-nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./xz-nginx/logs:/var/log/nginx
+    depends_on:
+      - xz-web
+    networks:
+      - sma-net
+
+
 networks:
   sma-net:
     name: sma-net
     driver: bridge
-
-volumes:
-  redis-data:
