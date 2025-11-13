@@ -114,7 +114,7 @@ public class ConfigServiceImpl implements ConfigService {
             String agentIdCn = smaProperties.getAgentId_cn();
             String agentIdOther = smaProperties.getAgentId_other();
             //自动选择国内智能体要求:1.设备处于国内  2.语言为中文或英文
-            if (StrUtil.equalsAny(country, "China", "CN") && StrUtil.equalsAny(simpleLanguage, "zh", "en")) {
+            if (StrUtil.equalsAny(country, "China", "CN") && StrUtil.equalsAny(simpleLanguage, "zh", "en", "cn")) {
                 agent = agentService.getAgentById(agentIdCn);
             } else {
                 agent = agentService.getAgentById(agentIdOther);
@@ -140,7 +140,7 @@ public class ConfigServiceImpl implements ConfigService {
             String country = dto.getCountry();
             String agentIdCn = smaProperties.getAgentId_cn();
             String agentIdOther = smaProperties.getAgentId_other();
-            if (StrUtil.equalsAny(country, "China", "CN") && StrUtil.equalsAny(dto.getLanguage(), "zh", "en")) {
+            if (StrUtil.equalsAny(country, "China", "CN") && StrUtil.equalsAny(dto.getLanguage(), "zh", "en", "cn")) {
                 agent = agentService.getAgentById(agentIdCn);
             } else {
                 agent = agentService.getAgentById(agentIdOther);

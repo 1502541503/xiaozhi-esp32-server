@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 使用Bocha Web Search API进行网页搜索的Python工具类
 """
 
-api_key = "sk-8613db0da5ef4b7b9e6dc261bdacc74b"
+api_key = "sk-886f31d498b54053b78ae5a862179f70"
 base_url = "https://api.bochaai.com/v1/web-search"
 
 GET_WEB_SEARCH_FUNCTION_DESC = {

@@ -3,7 +3,9 @@ import uuid
 import edge_tts
 from datetime import datetime
 from core.providers.tts.base import TTSProviderBase
+from config.logger import setup_logging
 
+logger = setup_logging()
 
 class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
@@ -23,17 +25,22 @@ class TTSProvider(TTSProviderBase):
     async def text_to_speak(self, text, output_file):
         try:
 
+            final_voice = self.voice
+
             try:
                 if (voice_value := self.conn.ble_info.get("voice")) is not None:
-                    self.voice = voice_value
+                    final_voice = voice_value
+
+                if voice_value == '':
+                    final_voice = voice_value
+
             except (AttributeError, KeyError):
                 pass  # 处理 ble_info 不存在或 get 方法异常的情况
 
+            logger.info(f"edge tts最终使用音色: {final_voice}")
+
             # 在调用处判断是否传入 voice 参数
-            if self.voice:
-                communicate = edge_tts.Communicate(text, voice=self.voice)
-            else:
-                communicate = edge_tts.Communicate(text)
+            communicate = edge_tts.Communicate(text, voice=final_voice)
 
             if output_file:
                 # 确保目录存在并创建空文件

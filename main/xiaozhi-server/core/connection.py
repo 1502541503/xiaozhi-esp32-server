@@ -537,12 +537,12 @@ class ConnectionHandler:
             return
         # if self.chat_history_conf == 0:
         #     return
-        if self.report_thread is None or not self.report_thread.is_alive():
-            self.report_thread = threading.Thread(
-                target=self._report_worker, daemon=True
-            )
-            self.report_thread.start()
-            self.logger.bind(tag=TAG).info("TTS上报线程已启动")
+        # if self.report_thread is None or not self.report_thread.is_alive():
+        #     self.report_thread = threading.Thread(
+        #         target=self._report_worker, daemon=True
+        #     )
+        #     self.report_thread.start()
+        #     self.logger.bind(tag=TAG).info("TTS上报线程已启动")
 
     def _initialize_tts(self):
         """初始化TTS"""

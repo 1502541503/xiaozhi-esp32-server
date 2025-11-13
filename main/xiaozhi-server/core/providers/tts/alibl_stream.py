@@ -34,7 +34,7 @@ class TTSProvider(TTSProviderBase):
         self.last_active_time = None
 
         # 模型和音色配置
-        self.model = config.get("model", "cosyvoice-v2")
+        self.model = config.get("model", "cosyvoice-v3")
         self.voice = config.get("voice", "longxiaochun_v2")  # 默认音色
         if config.get("private_voice"):
             self.voice = config.get("private_voice")
@@ -47,7 +47,7 @@ class TTSProvider(TTSProviderBase):
         volume = config.get("volume", "50")
         self.volume = int(volume) if volume else 50
 
-        rate = config.get("rate", "1.0")
+        rate = config.get("rate", "1.2")
         self.rate = float(rate) if rate else 1.0
 
         pitch = config.get("pitch", "1.0")
