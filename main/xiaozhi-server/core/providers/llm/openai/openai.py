@@ -25,7 +25,8 @@ class LLMProvider(LLMProviderBase):
         self.ws = None
         self.conn = None
         self.isAiOnline = None
-        self.model_name = config.get("model_name")
+        # self.model_name = config.get("model_name")
+        self.model_name = "qwen-max"
         self.api_key = config.get("api_key")
         if "base_url" in config:
             self.base_url = config.get("base_url")
@@ -65,6 +66,7 @@ class LLMProvider(LLMProviderBase):
         1. 简洁流畅，控制在3-5句话，适合语音播报。
         2. 不仅描述“看到的物体”，还能补充一些有趣的小知识或背景（如植物习性、饮料特点、品牌风格）。
         3. 语气自然、灵动，像一个贴心又懂点小百科的伙伴。
+        4. 如果用户提出翻译需求，直接翻译图片中的文字，默认翻译成中文。
         
         示例输出：
         - “你正站在一个明亮的办公室里，桌上有电脑和咖啡杯，看起来像是典型的工作场景。”
@@ -185,11 +187,16 @@ class LLMProvider(LLMProviderBase):
                 "tools": functions
             }
 
-            print(f"开启联网搜索:{self.isAiOnline}")
-            if self.isAiOnline is True and not imgUrl:
-                params["extra_body"] = {"enable_search": True}
+            # print(f"开启联网搜索:{self.isAiOnline}")
+            # if self.isAiOnline is True and not imgUrl:
+            #     params["extra_body"] = {
+            #         # 开启联网搜索
+            #         "enable_search": True,
+            #         # 配置搜索策略为高性能模式
+            #         "search_options": {"search_strategy": "max"}
+            #     }
 
-            logger.bind(tag=TAG).info(f"response_with_functions: {dialogue}")
+            logger.bind(tag=TAG).info(f"request_body: {params}")
             stream_response = self.client.chat.completions.create(**params)
 
             # 使用封装的流式处理方法
