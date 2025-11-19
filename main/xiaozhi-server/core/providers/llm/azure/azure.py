@@ -183,9 +183,6 @@ class LLMProvider(LLMProviderBase):
 
         for chunk in stream_response:
 
-            if self.conn.client_abort:
-                break
-
             logger.bind(tag=TAG).info(f"Azure流式响应帧: {chunk}")
 
             if getattr(chunk, "choices", None):
@@ -228,6 +225,8 @@ class LLMProvider(LLMProviderBase):
                                 self.loop,
                             )
 
+                            print("发送缓存字符: " + send_buffer)
+
                             yield send_buffer, tool_calls
                     else:
                         # 10个字符之后的内容直接输出
@@ -252,6 +251,8 @@ class LLMProvider(LLMProviderBase):
                             })),
                             self.loop,
                         )
+
+                        print("发送缓存字符: " + content)
 
                         yield content, tool_calls
 
@@ -285,10 +286,12 @@ class LLMProvider(LLMProviderBase):
                 self.loop,
             )
 
+            print("发送剩余字符: " + buffer)
+
             yield buffer, tool_calls
 
-        if full_content != "":
-            enqueue_tts_report(self.conn, full_content, None)
+        # if full_content != "":
+        #     enqueue_tts_report(self.conn, full_content, None)
 
     def vllm_chat_response(self, dialogue, imgUrl):
         domain_mapping = {

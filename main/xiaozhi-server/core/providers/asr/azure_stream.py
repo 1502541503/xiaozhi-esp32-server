@@ -187,6 +187,12 @@ class ASRProvider(ASRProviderBase):
             if result.text:
                 self.result_text = result.text
                 logger.bind(tag=TAG).info(f"最终识别结果: {result.text}")
+
+                self._schedule_async_task(self.conn.websocket.send(
+                    json.dumps(
+                        {"type": "stt2", "state": "sentence_start", "text": result.text,
+                         "session_id": self.conn.session_id})))
+
                 # 通知语音结束并处理结果
                 if self.conn:
                     logger.bind(tag=TAG).info("开始执行打断方法。。。")
@@ -216,10 +222,10 @@ class ASRProvider(ASRProviderBase):
         result = evt.result
         if result.text:
             logger.bind(tag=TAG).info(f"中间识别结果: {result.text}")
-            self._schedule_async_task(
-                self.conn.websocket.send(
-                    json.dumps({"type": "stt2", "text": result.text, "session_id": self.conn.session_id}))
-            )
+            self._schedule_async_task(self.conn.websocket.send(
+                json.dumps(
+                    {"type": "stt2", "state": "sentence_start", "text": result.text,
+                     "session_id": self.conn.session_id})))
 
     async def _check_silence_timeout(self, conn, timeout_seconds=2.0):
         """无音频输入超过 timeout_seconds，则结束识别"""
@@ -331,7 +337,7 @@ class ASRProvider(ASRProviderBase):
         self.server_ready = False  # 重置服务器准备状态
         self.result_text = ""
         self.raw_audio_buffer = []  # 清空原始音频缓冲区
-        await self.close()
+        # await self.close()
 
     def save_raw_audio(self) -> Optional[str]:
         """保存原始音频数据(Opus格式)到文件"""

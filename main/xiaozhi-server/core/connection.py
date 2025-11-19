@@ -1268,6 +1268,9 @@ class ConnectionHandler:
 
     def clear_queues(self):
         """清空所有任务队列"""
+        if self.asr:
+            self.clear_asr()
+
         if self.tts:
             self.logger.bind(tag=TAG).info(
                 f"开始清理: TTS队列大小={self.tts.tts_text_queue.qsize()}, 音频队列大小={self.tts.tts_audio_queue.qsize()}"
@@ -1300,7 +1303,7 @@ class ConnectionHandler:
 
     def clear_asr(self):
         self.asr_audio = []
-        self.asr_audio_queue = queue.Queue()
+        self.asr_audio_queue  = queue.Queue()
 
     def chat_and_close(self, text):
         """Chat with the user and then close the connection"""
