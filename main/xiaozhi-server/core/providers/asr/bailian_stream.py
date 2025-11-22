@@ -125,7 +125,7 @@ class ASRProvider(ASRProviderBase):
                 "turn_detection": {
                     "type": "server_vad",
                     "threshold": 0.5,
-                    "silence_duration_ms": 1200
+                    "silence_duration_ms": 1500
                 }
             }
         }

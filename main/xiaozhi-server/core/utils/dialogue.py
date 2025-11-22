@@ -2,6 +2,8 @@ import uuid
 from typing import List, Dict
 from datetime import datetime
 
+from core.utils.util import get_location_display
+
 
 class Message:
     def __init__(
@@ -63,9 +65,7 @@ class Dialogue:
         """清除所有非system类型的消息，只保留系统消息"""
         self.dialogue = [msg for msg in self.dialogue if msg.role == "system"]
 
-    def get_llm_dialogue_with_memory(
-            self, memory_str: str = None, lon=None, lat=None, lang=None
-    ) -> List[Dict[str, str]]:
+    def get_llm_dialogue_with_memory(self, conn) -> List[Dict[str, str]]:
         # if memory_str is None or len(memory_str) == 0:
         #     #print(f"直接返回，不记忆")
         #     return self.get_llm_dialogue()
@@ -84,10 +84,11 @@ class Dialogue:
         system_content += f"\n当前时间是：{datetime.now()}\n"
 
         # 追加角色设定-用户经纬度（用于查询用户当前天气）
-        if lon and lat:
-            system_content += f"\n用户所在的经纬度location：{lon},{lat}\n"
-        if lang:
-            system_content += f"\n你必须始终使用与用户输入相同的语言回答。你回复的语言为：{lang}\n"
+
+        system_content += f"\n用户当前位置：{conn.location}\n"
+
+        if conn.language:
+            system_content += f"\n你必须始终使用与用户输入相同的语言回答。你回复的语言为：{conn.language}\n"
 
         dialogue.append({"role": "system", "content": system_content})
 

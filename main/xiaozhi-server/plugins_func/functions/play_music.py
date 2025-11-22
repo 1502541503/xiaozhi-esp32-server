@@ -1,3 +1,5 @@
+import json
+
 from config.logger import setup_logging
 import os
 import re
@@ -64,6 +66,26 @@ def play_music(conn, song_name: str):
                 conn.logger.bind(tag=TAG).error(f"播放失败: {e}")
 
         future.add_done_callback(handle_done)
+
+        asyncio.run_coroutine_threadsafe(
+            conn.websocket.send(json.dumps({
+                "type": "tts",
+                "state": "start",
+                "session_id": conn.session_id
+            })),
+            conn.loop
+        )
+
+        # 发送当前内容
+        asyncio.run_coroutine_threadsafe(
+            conn.websocket.send(json.dumps({
+                "type": "tts",
+                "state": "sentence_start",
+                "session_id": conn.session_id,
+                "text": "正在播放..."
+            })),
+            conn.loop
+        )
 
         return ActionResponse(
             action=Action.NONE, result="指令已接收", response="正在为您播放音乐"

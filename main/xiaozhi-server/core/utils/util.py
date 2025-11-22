@@ -1075,3 +1075,70 @@ def is_valid_image_file(file_data: bytes) -> bool:
 def sanitize_tool_name(name: str) -> str:
     """Sanitize tool names for OpenAI compatibility."""
     return re.sub(r"[^a-zA-Z0-9_-]", "_", name)
+
+
+def get_location_display(lat, lon):
+    """
+    根据经纬度获取「城市+街道」描述，失败则返回原始经纬度字符串。
+
+    :param lat: 纬度 (float 或 str)
+    :param lon: 经度 (float 或 str)
+    :param contact_email: 用于 User-Agent 的联系邮箱（请替换为你的真实邮箱）
+    :return: str，例如 "北京市 东长安街" 或 "39.9042,116.4074"
+    """
+    # 构造 Nominatim 请求
+    url = "https://nominatim.openstreetmap.org/reverse"
+    headers = {
+        'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36'
+    }
+    params = {
+        'format': 'json',
+        'lat': lat,
+        'lon': lon,
+    }
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        # 注意：Nominatim 不返回标准 HTTP 错误码，即使没结果也是 200
+        if response.status_code != 200:
+            return f"{lat},{lon}"
+
+        data = response.json()
+
+        # 检查是否包含有效地址
+        if 'error' in data or not data.get('address'):
+            return f"{lat},{lon}"
+
+        addr = data['address']
+
+        # 尝试提取城市：优先 city，其次 town/village
+        city = (
+                addr.get('city') or
+                addr.get('town') or
+                addr.get('village') or
+                addr.get('county') or
+                addr.get('state') or
+                ''
+        )
+
+        # 提取街道信息
+        road = addr.get('road', '')
+        house_number = addr.get('house_number', '')
+
+        # 组合街道（如有门牌号）
+        street = f"{house_number} {road}".strip() if house_number else road
+
+        # 如果有城市和街道，返回组合；否则尽量返回可用信息
+        if city and street:
+            return f"{city} {street}"
+        elif city:
+            return city
+        elif street:
+            return street
+        else:
+            return f"{lat},{lon}"
+
+    except Exception as e:
+        # 任何异常（网络、解析、超时等）都回退到经纬度
+        print(f"[警告] Nominatim 调用失败: {e}")
+        return f"{lat},{lon}"
