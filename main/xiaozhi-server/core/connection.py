@@ -21,7 +21,7 @@ from core.utils.util import (
     extract_json_from_string,
     check_vad_update,
     check_asr_update,
-    filter_sensitive_info, _parse_accept_language,
+    filter_sensitive_info, _parse_accept_language, get_location_display,
 )
 from typing import Dict, Any
 from core.mcp.manager import MCPManager
@@ -171,6 +171,7 @@ class ConnectionHandler:
 
         # {"mcp":true} 表示启用MCP功能
         self.features = None
+        self.location = None
 
     def init_languages(self, websocket):
         # 1. 获取原始请求对象（websockets 库中通过 websocket.request_headers 和 path 获取）
@@ -588,6 +589,12 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).info(
                 f"{time.time() - begin_time} 秒，获取差异化配置成功: {json.dumps(filter_sensitive_info(private_config), ensure_ascii=False)}"
             )
+
+            ble_info.setdefault("latitude", '22.5758178')
+            ble_info.setdefault("longitude", '113.8479827')
+
+            self.location = get_location_display(ble_info['latitude'], ble_info['longitude'])
+
         except DeviceNotFoundException as e:
             self.need_bind = True
             private_config = {}
@@ -875,12 +882,7 @@ class ConnectionHandler:
                 self.llm.isAiOnline = self.isAiOnline
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(
-                        lon=self.lon,
-                        lat=self.lat,
-                        memory_str=memory_str,
-                        lang=self.language
-                    ),
+                    self.dialogue.get_llm_dialogue_with_memory(self),
                     functions=functions,
                     imgUrl=imgurl
                 )
@@ -1268,6 +1270,9 @@ class ConnectionHandler:
 
     def clear_queues(self):
         """清空所有任务队列"""
+        if self.asr:
+            self.clear_asr()
+
         if self.tts:
             self.logger.bind(tag=TAG).info(
                 f"开始清理: TTS队列大小={self.tts.tts_text_queue.qsize()}, 音频队列大小={self.tts.tts_audio_queue.qsize()}"

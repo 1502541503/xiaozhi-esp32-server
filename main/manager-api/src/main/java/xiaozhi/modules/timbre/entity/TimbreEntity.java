@@ -28,6 +28,9 @@ public class TimbreEntity {
     @Schema(description = "语言")
     private String languages;
 
+    @Schema(description = "语言名称")
+    private String languageName;
+
     @Schema(description = "音色名称")
     private String name;
 

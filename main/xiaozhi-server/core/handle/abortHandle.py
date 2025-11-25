@@ -5,8 +5,13 @@ TAG = __name__
 
 async def handleAbortMessage(conn):
     conn.logger.bind(tag=TAG).info("Abort message received")
-    # 设置成打断状态，会自动打断llm、tts任务
+    # 设置成打断状态
     conn.client_abort = True
+    # 清空asr音频缓存
+    conn.reset_vad_states()
+    conn.asr_audio.clear()
+    await conn.asr._cleanup()
+    # 清空tts队列
     conn.clear_queues()
     conn.clearSpeakStatus()
     conn.is_processing = False

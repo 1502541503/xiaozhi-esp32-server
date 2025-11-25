@@ -57,7 +57,7 @@ public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> 
                         // 如果有音色名字，按照音色名模糊查找
                         .like(StringUtils.isNotBlank(dto.getName()), "name", dto.getName())
                         // 如果有语言名字，按照语言名模糊查找
-                        .like(StringUtils.isNotBlank(dto.getLanguages()), "tts_voice", dto.getLanguages())
+                        .like(StringUtils.isNotBlank(dto.getLanguages()), "languages", dto.getLanguages())
         );
 
         return getPageData(page, TimbreDetailsVO.class);

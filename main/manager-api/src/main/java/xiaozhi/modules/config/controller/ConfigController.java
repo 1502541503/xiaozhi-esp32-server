@@ -29,9 +29,7 @@ import xiaozhi.modules.timbre.service.TimbreService;
 import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -62,16 +60,16 @@ public class ConfigController {
 
         String simpleLanguage = HttpContextUtils.getSimpleLanguage();
 
-        // 2. 构造缓存 key：基于 bleInfoStr 和 simpleLanguage
-        String cacheKey = "ttsVoices_" + bleInfo.getMac() + "_" + bleInfo.getCountry() + "_" + simpleLanguage;
+//        // 2. 构造缓存 key：基于 bleInfoStr 和 simpleLanguage
+//        String cacheKey = "ttsVoices_" + bleInfo.getMac() + "_" + bleInfo.getCountry() + "_" + simpleLanguage;
+//
+//        // 3. 尝试从 Redis 读取缓存
+//        Result<Map<String, List<TimbreDetailsVO>>> cachedContent = (Result<Map<String, List<TimbreDetailsVO>>>) redisUtils.get(cacheKey);
+//        if (cachedContent != null) {
+//            return cachedContent;
+//        }
 
-        // 3. 尝试从 Redis 读取缓存
-        Result<Map<String, List<TimbreDetailsVO>>> cachedContent = (Result<Map<String, List<TimbreDetailsVO>>>) redisUtils.get(cacheKey);
-        if (cachedContent != null) {
-            return cachedContent;
-        }
-
-        AgentEntity agentTTSModelByHeader = configService.getAgentTTSModelByDevice(bleInfo,simpleLanguage);
+        AgentEntity agentTTSModelByHeader = configService.getAgentTTSModelByDevice(bleInfo, simpleLanguage);
         dto.setTtsModelId(agentTTSModelByHeader.getTtsModelId());
         dto.setLanguages(simpleLanguage);
         dto.setLimit("1000");
@@ -80,18 +78,37 @@ public class ConfigController {
         ValidatorUtils.validateEntity(dto);
         List<TimbreDetailsVO> voices = timbreService.page(dto).getList();
 
-        Map<String, List<TimbreDetailsVO>> groupedByLanguage = voices.stream()
+
+        // 第一步：按 languageName 分组，并对每组内部按 sort 排序
+        Map<String, List<TimbreDetailsVO>> grouped = voices.stream()
                 .collect(Collectors.groupingBy(
-                        TimbreDetailsVO::getLanguages,
-                        TreeMap::new, // 指定使用 TreeMap，按键自然排序（字典序）
-                        Collectors.toList()
+                        TimbreDetailsVO::getLanguageName,
+                        Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                list -> list.stream()
+                                        .sorted(Comparator.comparingLong(TimbreDetailsVO::getSort))
+                                        .collect(Collectors.toList())
+                        )
                 ));
 
-        cachedContent = new Result<Map<String, List<TimbreDetailsVO>>>().ok(groupedByLanguage);
+        // 第二步：按每组的最小 sort 值对分组进行排序
+        Map<String, List<TimbreDetailsVO>> result = grouped.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue(
+                        Comparator.comparingLong(list -> list.getFirst().getSort())
+                ))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (a, b) -> a,
+                        LinkedHashMap::new // 保持排序后的插入顺序
+                ));
 
-        redisUtils.set(cacheKey, cachedContent, 300);
 
-        return cachedContent;
+//        cachedContent = new Result<Map<String, List<TimbreDetailsVO>>>().ok(groupedByLanguage);
+//
+//        redisUtils.set(cacheKey, cachedContent, 300);
+
+        return new Result<Map<String, List<TimbreDetailsVO>>>().ok(result);
     }
 
     @PostMapping("server-base")

@@ -2,33 +2,18 @@ import json
 import time
 import base64
 import asyncio
+from datetime import datetime
 
 import numpy as np
 import websockets
 import opuslib_next
 import random
-from urllib import parse
 from config.logger import setup_logging
 from core.providers.asr.base import ASRProviderBase
 from core.providers.asr.dto.dto import InterfaceType
 
 TAG = __name__
 logger = setup_logging()
-
-
-class AccessToken:
-    @staticmethod
-    def _encode_text(text):
-        encoded_text = parse.quote_plus(text)
-        return encoded_text.replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
-
-    @staticmethod
-    def _encode_dict(dic):
-        keys = dic.keys()
-        dic_sorted = [(key, dic[key]) for key in sorted(keys)]
-        encoded_text = parse.urlencode(dic_sorted)
-        return encoded_text.replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
-
 
 class ASRProvider(ASRProviderBase):
     def __init__(self, config, delete_audio_file):
@@ -61,12 +46,10 @@ class ASRProvider(ASRProviderBase):
         ]
 
         self.ws_url = f"{self.host}?model={self.model}"
-        self.max_sentence_silence = config.get("max_sentence_silence")
+        self.max_sentence_silence = 1200
         self.output_dir = config.get("output_dir", "./audio_output")
         self.delete_audio_file = delete_audio_file
         self.expire_time = None
-
-
 
     async def open_audio_channels(self, conn):
         await super().open_audio_channels(conn)
@@ -108,7 +91,6 @@ class ASRProvider(ASRProviderBase):
 
     async def _start_recognition(self, conn):
         print("开始识别了")
-        # self.silence_check_task = asyncio.create_task(self._check_silence_timeout(conn))
         if self.asr_ws and self.is_processing:  # 防止重复进入
             logger.bind(tag=TAG).warning("已有识别进行中，忽略新的 start")
             return
@@ -143,27 +125,24 @@ class ASRProvider(ASRProviderBase):
                 "turn_detection": {
                     "type": "server_vad",
                     "threshold": 0.5,
-                    "silence_duration_ms": 1000
+                    "silence_duration_ms": 1500
                 }
             }
         }
         await self.asr_ws.send(json.dumps(event_vad, ensure_ascii=False))
-        logger.bind(tag=TAG).info("已发送开始请求，等待服务器准备...")
+        logger.bind(tag=TAG).info(f"{datetime.now()}  已发送开始请求，等待服务器准备...")
 
     async def _forward_results(self, conn):
         """转发识别结果"""
-        last_result_time = time.time()
-        #last_result_time = None
         self.silence_frames_sent = 0
         confirmed_text = ""
         try:
             while self.asr_ws and not conn.stop_event.is_set():
                 try:
-                    response = await asyncio.wait_for(self.asr_ws.recv(), timeout=2.0)
+                    response = await self.asr_ws.recv()
                     result = json.loads(response)
                     print(f"result==={result}")
                     type = result.get("type", "")
-                    last_data_time = time.time()
 
                     if type == "error" or type == "conversation.item.input_audio_transcription.failed":
                         logger.bind(tag=TAG).warning(f"语言识别异常，状态码: {result}")
@@ -173,7 +152,7 @@ class ASRProvider(ASRProviderBase):
                     if type == "session.updated":
                         self.server_ready = True
                         self.silence_frames_sent = 0
-                        logger.bind(tag=TAG).info("服务器已准备，开始发送缓存音频...")
+                        logger.bind(tag=TAG).info(f"{datetime.now()} 服务器已准备，开始发送缓存音频...")
                         # 第一次收到服务器准备，初始化 last_result_time
                         # last_result_time = time.time()
                         # 发送缓存音频

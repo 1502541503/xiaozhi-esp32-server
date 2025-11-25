@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Dict, List, Optional
 import requests
 from pydantic import BaseModel
@@ -24,7 +25,7 @@ GET_WEB_SEARCH_FUNCTION_DESC = {
         "name": "get_web_search",
         "description": (
             """
-            使用网络搜索API搜索网页。返回搜索结果包括网页标题、网页URL、网页摘要、网站名称、网站图标、网页发布时间等。
+            使用网络搜索API搜索网页。返回最新搜索结果包括网页标题、网页摘要、网站名称、网站图标、网页发布时间等信息。
             """
         ),
         "parameters": {
@@ -52,6 +53,9 @@ def get_web_search(query: str) -> str:
     Returns:
         搜索结果的详细信息，包括网页标题、网页URL、网页摘要等
     """
+    # 获取当前时间并格式化为"年-月"
+    # current_date = datetime.now().strftime("%Y-%m")
+    # q = f"当前时间：{current_date}。{query}"
     logger.info(f"开始搜索...{query}")
     return bocha_web_search_tool_extended(query, "noLimit", True, 10)
 
@@ -118,16 +122,14 @@ def bocha_web_search_tool_extended(query: str,
                 formatted_result = (
                     f"引用: {idx}\n"
                     f"标题: {page.get('name', '')}\n"
-                    f"URL: {page.get('url', '')}\n"
                     f"摘要: {page.get('summary', '')}\n"
                     f"网站名称: {page.get('siteName', '')}\n"
-                    f"网站图标: {page.get('siteIcon', '')}\n"
                     f"发布时间: {page.get('dateLastCrawled', '')}\n"
                 )
                 formatted_results.append(formatted_result)
 
             result_str = "\n".join(formatted_results)
-            logger.info(f"搜索结果: {result_str}")
+            # logger.info(f"搜索结果: {result_str}")
 
             return ActionResponse(Action.REQLLM, result_str.strip(), None)
         else:
@@ -149,7 +151,7 @@ def bocha_web_search_tool_extended(query: str,
 class SearchResult(BaseModel):
     """搜索结果数据模型"""
     title: str
-    url: str
+    url: Optional[str] = None
     summary: str
     site_name: str
     site_icon: str
@@ -177,7 +179,7 @@ def parse_search_results(search_output: str) -> List[SearchResult]:
         elif line.startswith('标题:'):
             current_result['title'] = line[3:].strip()
         elif line.startswith('URL:'):
-            current_result['url'] = line[4:].strip()
+            current_result['url'] = ""
         elif line.startswith('摘要:'):
             current_result['summary'] = line[3:].strip()
         elif line.startswith('网站名称:'):
@@ -197,15 +199,8 @@ def parse_search_results(search_output: str) -> List[SearchResult]:
 if __name__ == "__main__":
 
     # 执行搜索
-    query = "Python编程教程"
-    result = bocha_web_search_tool(query)
+    query = "What is the latest iPhone model?"
+    result = get_web_search(query)
 
     print("搜索完成，结果:")
-    print(result)
-
-    # 解析结果
-    parsed_results = parse_search_results(result)
-    for res in parsed_results:
-        print(f"标题: {res.title}")
-        print(f"URL: {res.url}")
-        print("---")
+    print(result.result)

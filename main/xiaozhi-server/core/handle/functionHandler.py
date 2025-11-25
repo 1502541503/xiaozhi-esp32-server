@@ -65,8 +65,8 @@ class FunctionHandler:
         # 判断是国外gpt模型并并且开启了联网搜索才注册
         if (
                 self.conn.isAiOnline
-                and hasattr(self.conn.llm, "deployment_name")
-                and "gpt" in self.conn.llm.deployment_name
+                # and hasattr(self.conn.llm, "deployment_name")
+                # and "gpt" in self.conn.llm.deployment_name
         ):
             self.function_registry.register_function("get_web_search")
 
