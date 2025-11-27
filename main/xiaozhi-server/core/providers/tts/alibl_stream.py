@@ -228,6 +228,9 @@ class TTSProvider(TTSProviderBase):
             # 启动监听任务
             self._monitor_task = asyncio.create_task(self._start_monitor_tts_response())
 
+            if self.conn.ble_info.get("voice",""):
+                self.voice = self.conn.ble_info.get("voice","")
+
             # 发送run-task消息启动会话
             run_task_message = {
                 "header": {
@@ -248,6 +251,7 @@ class TTSProvider(TTSProviderBase):
                         "volume": self.volume,
                         "rate": self.rate,
                         "pitch": self.pitch,
+                        "language_hints":  ["zh"] if self.conn.language == "zh" else ["en"],
                     },
                     "input": {}
                 },
