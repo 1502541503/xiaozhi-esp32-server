@@ -35,7 +35,7 @@ class TTSProvider(TTSProviderBase):
 
         # 模型和音色配置
         self.model = config.get("model", "cosyvoice-v3")
-        self.voice = config.get("voice", "longxiaochun_v2")  # 默认音色
+        self.voice = config.get("voice", "longyingmu_v3")  # 默认音色
         if config.get("private_voice"):
             self.voice = config.get("private_voice")
 
@@ -228,8 +228,10 @@ class TTSProvider(TTSProviderBase):
             # 启动监听任务
             self._monitor_task = asyncio.create_task(self._start_monitor_tts_response())
 
-            if self.conn.ble_info.get("voice",""):
+            if self.conn.ble_info.get("voice","") in alibl_vioces:
                 self.voice = self.conn.ble_info.get("voice","")
+            else:
+                self.voice = "longyingmu_v3"
 
             # 发送run-task消息启动会话
             run_task_message = {
@@ -524,3 +526,11 @@ class TTSProvider(TTSProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"生成音频数据失败: {str(e)}")
             return []
+
+alibl_vioces = [
+    "longyingmu_v3",
+    "loongbella_v3",
+    "longyingxun_v3",
+    "longanwen_v3",
+    "longanzhi_v3"
+]
